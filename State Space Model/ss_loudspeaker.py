@@ -34,9 +34,6 @@ A =   np.array([[-Rec/Lec,          0,    -Bl/Lec],
                 [0,                 0,          1],
                 [Bl/Mms, -1/(Cms*Mms),   -Rms/Mms]])
 
-print(np.linalg.det(A))
-
-
 B =  np.array([[1/Lec], [0], [0]])
 
 I = np.eye(3)
@@ -79,3 +76,18 @@ plt.show()
 
 
 # Hxu - displacement transfer function
+
+f = np.arange(20, 20000)
+w = 2*np.pi*f
+
+Hxu = Bl/((Rec+1j*w*Lec)*(-(w**2)*Mms+1j*w*Rms+1/Cms)+1j*w*Bl**2)
+
+
+fig, ax = plt.subplots()
+
+ax.semilogx(f, np.abs(Hxu)*1e3)
+ax.set_xlabel('Frequency [Hz]')
+ax.set_ylabel('|X/U| [mm/V]')
+ax.grid(which='both')
+
+plt.show()
