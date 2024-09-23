@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import soundfile as sf
+import sounddevice as sd
 from scipy.signal import freqs
+from scipy.signal import bilinear
+from scipy.signal import lfilter
 
 # Develop a state-space model for a loudspeaker
 
@@ -116,3 +120,18 @@ ax.grid(which='both')
 ax.legend(loc='upper right')
 
 plt.show()
+
+
+# filtering of an audio sample
+
+''' load audio '''
+data, Fs_audio = sf.read('ShookOnes_PtIII_short.wav')
+
+audio_data = data[:, 1]
+
+az, bz = bilinear(b, a, fs=Fs_audio)
+
+out = lfilter(bz, az, audio_data)
+
+sd.play(out, Fs_audio)
+sd.wait()  # Wait until file is done playing
