@@ -80,11 +80,12 @@ plt.show()
 
 f = np.arange(20, 20000)
 w = 2*np.pi*f
+s = 1j*w
 
 C = np.array([[0, 1, 0]])
 D = np.array([[0]])
 
-s = 1j*2*np.pi*f
+
 #analog transfer function
 H = np.array([C @ np.linalg.inv((s_*I - A)) @ B + D for s_ in s])[:,0,0]
 
