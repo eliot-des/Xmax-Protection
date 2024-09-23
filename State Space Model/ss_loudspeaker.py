@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import freqs
 
 # Develop a state-space model for a loudspeaker
 
@@ -91,12 +92,27 @@ H = np.array([C @ np.linalg.inv((s_*I - A)) @ B + D for s_ in s])[:,0,0]
 
 Hxu = Bl/((Rec+1j*w*Lec)*(-(w**2)*Mms+1j*w*Rms+1/Cms)+1j*w*Bl**2)
 
+# Filter coefficient from S to z domain
+
+b = np.array([0, 0, 0, Bl])
+a = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms+Bl**2, Rec/Cms])
+
+#normalize filter
+a0 = a[0]
+a = a/a0
+b = b/a0
+
+
+_, h = freqs(b, a, worN=w)
+
 
 fig, ax = plt.subplots()
-ax.semilogx(f, np.abs(H)*1e3)
-ax.semilogx(f, np.abs(Hxu)*1e3, 'r--')
+ax.semilogx(f, np.abs(H)*1e3, label='from state-space')
+ax.semilogx(f, np.abs(Hxu)*1e3, 'r--', label='theoritical')
+ax.semilogx(f, np.abs(h)*1e3, '-.m', label='analog filter')
 ax.set_xlabel('Frequency [Hz]')
 ax.set_ylabel('|X/U| [mm/V]')
 ax.grid(which='both')
+ax.legend(loc='upper right')
 
 plt.show()
