@@ -48,7 +48,7 @@ plt.show()
 
 #normalize filtered data
 filtered_data = filtered_data/np.max(np.abs(filtered_data))
-
+filtered_data*=0.9
 filtered_data = filtered_data*2**15
 
 write('Audio Tests/ShookOnesFiltered.wav', Fs, filtered_data.astype(np.int16))
