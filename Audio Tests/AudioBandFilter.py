@@ -5,23 +5,35 @@ from scipy.io.wavfile import read, write
 from lib import *
 
 #import/read wavefile
-Fs, x = read('Audio Tests/ShookOnesLPFiltered.wav')
+Fs, x = read('Audio Tests/ShookOnesDisplacement.wav')
 # print(x.dtype)
 
 f  = np.geomspace(10, Fs/2, 1000)
 fc = [30, 60, 90, 120, 200]
 
+filter_type = 'Linkwitz'
+order = 8
 
-# sos_lwrl = multibandLinkwitzFilters(8, fc, Fs)
-sos_lwrl = multibandEllipticFilters(8, fc, Fs, 1, 60)
 
-x_filt = np.zeros((len(sos_lwrl), len(x)))
+if filter_type == 'Elliptic':
+    sos = multibandEllipticFilters(order, fc, Fs, 1, 60)
+elif filter_type == 'Chebyshev':
+    sos = multibandChebyshev1Filters(order, fc, Fs, 1)
+elif filter_type == 'Butterworth':
+    sos = multibandButterworthFilters(order, fc, Fs)
+elif filter_type == 'Linkwitz':
+    sos = multibandLinkwitzFilters(order/2, fc, Fs)
+else:
+    raise ValueError('Filter type not supported')
 
-for i in range(len(sos_lwrl)):
-    x_filt[i] = sig.sosfilt(sos_lwrl[i], x)
+
+x_filt = np.zeros((len(sos), len(x)))
+
+for i in range(len(sos)):
+    x_filt[i] = sig.sosfilt(sos[i], x)
 
     # write(f'Audio Tests/Linkwitz/ShookOnesLPFiltered_bandNo{i}.wav', Fs, x_filt[i].astype(np.int16))
-    write(f'Audio Tests/Elliptic/ShookOnesLPFiltered_bandNo{i}.wav', Fs, x_filt[i].astype(np.int16))
+    write(f'Audio Tests/{filter_type}/ShookOnesDisplacement_{filter_type}_{order}_bandNo{i}.wav', Fs, x_filt[i].astype(np.int16))
 
 
 '''
