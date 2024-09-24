@@ -82,3 +82,38 @@ def multibandEllipticFilters(order, fc, fs, rp, rs):
             sos[i] = sig.ellip(order, rp, rs, (fc[i-1], fc[i]), 'bandpass', fs = fs, output='sos')
 
         return sos
+
+
+##function to return a list of sos sections for multi-band processing with butterworth filters
+def multibandButterworthFilters(order, fc, fs):
+    
+    Nbrfilters = len(fc) +1
+
+    sos = [None] * Nbrfilters
+
+    #create the low and high pass filters
+    sos[0] = sig.butter(order, fc[0], 'low', fs = fs, output='sos')
+    sos[-1] = sig.butter(order, fc[-1], 'high', fs = fs, output='sos')
+
+    #create the band-pass filters
+    for i in range(1, Nbrfilters-1):
+        sos[i] = sig.butter(order, (fc[i-1], fc[i]), 'bandpass', fs = fs, output='sos')
+
+    return sos
+
+#function to return a list of sos sections for multi-band processing with Chebyshev filters
+def multibandChebyshev1Filters(order, fc, fs, rp):
+    
+    Nbrfilters = len(fc) +1
+
+    sos = [None] * Nbrfilters
+
+    #create the low and high pass filters
+    sos[0] = sig.cheby1(order, rp, fc[0], 'low', fs = fs, output='sos')
+    sos[-1] = sig.cheby1(order, rp, fc[-1], 'high', fs = fs, output='sos')
+
+    #create the band-pass filters
+    for i in range(1, Nbrfilters-1):
+        sos[i] = sig.cheby1(order, rp, (fc[i-1], fc[i]), 'bandpass', fs = fs, output='sos')
+
+    return sos
