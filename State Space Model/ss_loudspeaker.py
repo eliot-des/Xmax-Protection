@@ -79,7 +79,7 @@ plt.show()
 
 # Hxu - displacement transfer function
 
-f = np.arange(20, 20000)
+f = np.arange(1, 20000)
 w = 2*np.pi*f
 s = 1j*w
 
