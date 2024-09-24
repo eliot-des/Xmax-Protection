@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 import scipy.signal as sig
 from scipy.io.wavfile import read, write  
 from lib import *
-
+Fs = 48000
 #import/read wavefile
+
 Fs, data = read('Audio Tests/ShookOnes.wav')
+
 
 A = 1                                #gain of the amplifier
 u = A*normalize(data[:, 1])          #tension in volts
@@ -56,27 +58,34 @@ f = np.geomspace(1, Fs/2, 1000)
 #fc = [25, 200, 700, 4000]
 fc = [20, 50, 100, 200]
 
-sos_lwrl = multibandLinkwitzFilters(8, fc, Fs) 
-
+sos_lwrl = multibandLinkwitzFilters(4, fc, Fs) 
+sos_elli = multibandEllipticFilters(5, fc, Fs, 1, 60)
 
 H_lwrl = np.zeros((len(sos_lwrl), len(f)), dtype = complex)
+H_elli = np.zeros((len(sos_elli), len(f)), dtype = complex)
 
-for i, sos in enumerate(sos_lwrl):
-    _, H_lwrl[i] = sig.sosfreqz(sos, worN = f, fs = Fs)
+for i in range(len(sos_lwrl)):
+    _, H_lwrl[i] = sig.sosfreqz(sos_lwrl[i], worN = f, fs = Fs)
+    _, H_elli[i] = sig.sosfreqz(sos_elli[i], worN = f, fs = Fs)
 
 
 
+print(sos_elli[0].shape)
 
 H_tot = H_lwrl[0] - H_lwrl[1] + H_lwrl[2] - H_lwrl[3] + H_lwrl[4]
 
 fig, ax = plt.subplots(2, 1, sharex = True)
 
-for i in range(len(sos_lwrl)):
-    ax[0].semilogx(f, 20*np.log10(np.abs(H_lwrl[i])), label = f'Band {i+1}')
-    ax[1].semilogx(f, np.angle(H_lwrl[i]), label = f'Band {i+1}')
+#create color map for the bands
+colors = plt.cm.viridis(np.linspace(0.1, 0.9, len(sos_lwrl)))
 
-ax[0].semilogx(f, 20*np.log10(np.abs(H_tot)), label = 'Total')
-ax[1].semilogx(f, np.angle(H_tot), label = 'Total')
+for i in range(len(sos_lwrl)):
+    ax[0].semilogx(f, 20*np.log10(np.abs(H_lwrl[i])), label = f'Band {i+1}', color = colors[i])
+    #ax[1].semilogx(f, np.angle(H_lwrl[i]), label = f'Band {i+1}')
+    ax[1].semilogx(f, 20*np.log10(np.abs(H_elli[i])),'--', label = f'Band {i+1}', color = colors[i])
+
+#ax[0].semilogx(f, 20*np.log10(np.abs(H_tot)), label = 'Total')
+#ax[1].semilogx(f, np.angle(H_tot), label = 'Total')
 
 ax[0].legend()
 ax[0].grid(which='both')
@@ -84,6 +93,7 @@ ax[1].grid(which='both')
 ax[0].set_title('Modulus and phase response of the filters')
 ax[0].set(xlabel = 'Frequency [Hz]', ylabel = 'Magnitude [dB]')
 ax[0].set(xlim = (10, Fs/2), ylim = (-40, 10))
+ax[1].set(xlim = (10, Fs/2), ylim = (-40, 10))
 plt.show()
 
 
