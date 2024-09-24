@@ -5,7 +5,7 @@ from scipy.io.wavfile import read, write
 from lib import *
 
 #import/read wavefile
-Fs, data = read('ShookOnes.wav')
+Fs, data = read('Audio Tests/ShookOnes.wav')
 
 A = 1                                #gain of the amplifier
 u = A*normalize(data[:, 1])          #tension in volts
@@ -67,7 +67,7 @@ for i, sos in enumerate(sos_lwrl):
 
 
 
-H_tot = H[0] - H[1] + H[2] - H[3] + H[4]
+H_tot = H_lwrl[0] - H_lwrl[1] + H_lwrl[2] - H_lwrl[3] + H_lwrl[4]
 
 fig, ax = plt.subplots(2, 1, sharex = True)
 
