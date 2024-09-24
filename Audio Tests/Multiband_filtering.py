@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 import scipy.signal as sig
 from scipy.io.wavfile import read, write  
 from lib import *
-
+Fs = 48000
 #import/read wavefile
+'''
 Fs, data = read('Audio Tests/ShookOnes.wav')
+
 
 A = 1                                #gain of the amplifier
 u = A*normalize(data[:, 1])          #tension in volts
@@ -47,7 +49,7 @@ ax[1].set_ylabel('Displacement [mm]')
 ax[1].set_xlabel('Time [s]')
 ax[0].grid()
 ax[1].grid()
-
+'''
 
 f = np.geomspace(1, Fs/2, 1000)
 
@@ -91,6 +93,7 @@ ax[1].grid(which='both')
 ax[0].set_title('Modulus and phase response of the filters')
 ax[0].set(xlabel = 'Frequency [Hz]', ylabel = 'Magnitude [dB]')
 ax[0].set(xlim = (10, Fs/2), ylim = (-40, 10))
+ax[1].set(xlim = (10, Fs/2), ylim = (-40, 10))
 plt.show()
 
 
