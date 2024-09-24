@@ -5,7 +5,7 @@ from scipy.io.wavfile import read, write
 from lib import *
 Fs = 48000
 #import/read wavefile
-'''
+
 Fs, data = read('Audio Tests/ShookOnes.wav')
 
 
@@ -49,7 +49,7 @@ ax[1].set_ylabel('Displacement [mm]')
 ax[1].set_xlabel('Time [s]')
 ax[0].grid()
 ax[1].grid()
-'''
+
 
 f = np.geomspace(1, Fs/2, 1000)
 
