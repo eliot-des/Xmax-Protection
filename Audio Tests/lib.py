@@ -115,5 +115,5 @@ def multibandChebyshev1Filters(order, fc, fs, rp):
     #create the band-pass filters
     for i in range(1, Nbrfilters-1):
         sos[i] = sig.cheby1(order, rp, (fc[i-1], fc[i]), 'bandpass', fs = fs, output='sos')
-
+        
     return sos

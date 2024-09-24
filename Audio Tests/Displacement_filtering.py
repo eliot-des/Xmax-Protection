@@ -51,4 +51,4 @@ filtered_data = filtered_data/np.max(np.abs(filtered_data))
 filtered_data*=0.8
 filtered_data = filtered_data*2**15
 
-write('Audio Tests/ShookOnesLPFiltered.wav', Fs, filtered_data.astype(np.int16))
+write('Audio Tests/ShookOnesDisplacement.wav', Fs, filtered_data.astype(np.int16))
