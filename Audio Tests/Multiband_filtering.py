@@ -59,7 +59,7 @@ f = np.geomspace(1, Fs/2, 1000)
 fc = [20, 50, 100, 200]
 
 sos_lwrl = multibandLinkwitzFilters(4, fc, Fs) 
-sos_elli = multibandEllipticFilters(5, fc, Fs, 1, 60)
+sos_elli = multibandEllipticFilters(4, fc, Fs, 1, 60)
 
 H_lwrl = np.zeros((len(sos_lwrl), len(f)), dtype = complex)
 H_elli = np.zeros((len(sos_elli), len(f)), dtype = complex)
