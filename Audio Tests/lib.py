@@ -67,7 +67,6 @@ def multibandLinkwitzFilters(order, fc, fs):
 
 
 ##function to return a list of sos sections for multi-band processing with elliptic filters
-
 def multibandEllipticFilters(order, fc, fs, rp, rs):
         
         Nbrfilters = len(fc) +1
@@ -80,6 +79,6 @@ def multibandEllipticFilters(order, fc, fs, rp, rs):
     
         #create the band-pass filters
         for i in range(1, Nbrfilters-1):
-            sos[i] = sig.ellip(order, rp, rs, fc[i-1], fc[i], 'bandpass', fs = fs, output='sos')
+            sos[i] = sig.ellip(order, rp, rs, (fc[i-1], fc[i]), 'bandpass', fs = fs, output='sos')
 
         return sos
