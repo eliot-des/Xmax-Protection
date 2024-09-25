@@ -102,9 +102,10 @@ t = np.arange(len(x))/Fs
 # Set parameters for the dynamic controller
 attack_time    = 0.00005    # Attack time in seconds
 release_time   = 0.07    # Release time in seconds
+averaging_time = 0.02    # Averaging time in seconds
 
 x_peak = dynamic_peak_controller1(x, attack_time, release_time, Fs)
-x_rms  = dynamic_rms_controller(x, 0.1, Fs)
+x_rms  = dynamic_rms_controller(x, averaging_time, Fs)
 
 # Plot the original and the peak-controlled signal
 fig, ax = plt.subplots()
