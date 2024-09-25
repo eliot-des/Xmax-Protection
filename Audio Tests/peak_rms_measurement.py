@@ -45,6 +45,7 @@ def dynamic_peak_controller2(x, attack_time, release_time, Fs):
         else:
             x_peak = (1 - release_coeff) * x_peak
         
+                
         # Store the result
         x_peak_output[n] = x_peak
     
@@ -64,6 +65,20 @@ def dynamic_rms_controller(x, averaging_time, Fs):
         x_rms_output[n] = np.sqrt(x2_rms)
     
     return x_rms_output
+
+
+def gain_factor_smoothing(x, attack_coeff, release_coeff):
+    y = np.zeros_like(x)
+
+    for n in range(1, len(x)):
+        if x[n] > x[n-1]:
+            k = attack_coeff
+        else:
+            k = release_coeff
+
+        y[n] = (1 - k) * y[n-1] + k * x[n]
+
+    return y
 
 
 Fs = 48000
