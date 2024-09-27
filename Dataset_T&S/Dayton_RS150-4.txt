@@ -1,0 +1,12 @@
+fs = 45.1
+Rec = 3.1
+Lec = 0.34e-3
+Qms = 1.96
+Qes = 0.40
+Qts = 0.33
+Mms = 7.7e-3
+Cms = 1.62e-3
+Rms = 1/(2*np.pi*fs*Cms*Qms)
+Bl  = 4.1
+Vas = 16.4e-3
+Sd  = 85e-4
