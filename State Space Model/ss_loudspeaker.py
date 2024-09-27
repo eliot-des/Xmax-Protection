@@ -5,25 +5,19 @@ from scipy.signal import freqs
 # Develop a state-space model for a loudspeaker
 
 # Thiele-small parameters
-# Data from Peerless HDS-P830860 Datasheet
+loudspeakers = {'full-range1' :'Dayton_CE4895-8',
+                'full-range2' :'Dayton_HARB252­-8',
+                'woofer1': 'Peerless_HDSP830860',
+                'woofer2': 'Dayton_DCS165­-4',
+                'woofer3': 'Dayton_RS150-4',
+                'subwoofer1': 'B&C_15FW76-4'}
 
-fs = 72
-Rec = 6.4
-Lec = 0.278e-3
+loudspeaker = loudspeakers['subwoofer1']
 
-Qms = 2.08
-Qes = 0.725
-Qts = 0.54
-
-Mms = 8.88e-3
-Cms = 560e-6
-Rms = 1/(2*np.pi*fs*Cms*Qms)
-
-Bl  = 5.74
-
-Vas = 6.36e-3
-Sd  = 89.9e-4
-
+with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
+    lines = f.readlines()
+    for line in lines:
+        exec(line)
 
 # State-space model
 # Create the Matrices A, B and vectors x, xdot
@@ -55,7 +49,7 @@ print(Bd.shape)
 
 
 f = 200
-t = np.arange(0, 1, Ts)
+t = np.arange(0, 0.02, Ts)
 u = np.sin(2*np.pi*f*t)
 
 
@@ -72,14 +66,14 @@ ax.plot(t, 1e3*x[1], label='x2 - displacement')
 ax.plot(t, x[2], label='x3 - velocity')
 
 ax.legend()
-plt.show()
+
 
 
 
 
 # Hxu - displacement transfer function
 
-f = np.arange(1, 20000)
+f = np.geomspace(20, 20000, 500)
 w = 2*np.pi*f
 s = 1j*w
 
@@ -91,7 +85,7 @@ D = np.array([[0]])
 H = np.array([C @ np.linalg.inv((s_*I - A)) @ B + D for s_ in s])[:,0,0]
 
 Hxu = Bl/((Rec+1j*w*Lec)*(-(w**2)*Mms+1j*w*Rms+1/Cms)+1j*w*Bl**2)
-
+Ze  = Rec+1j*w*Lec + Bl**2/(Rms + 1j*w*Mms + 1/(1j*w*Cms))
 # Filter coefficient from S to z domain
 
 b = np.array([0, 0, 0, Bl])
@@ -115,4 +109,16 @@ ax.set_ylabel('|X/U| [mm/V]')
 ax.grid(which='both')
 ax.legend(loc='upper right')
 
+
+
+fig, ax = plt.subplots()
+
+axt = ax.twinx()
+
+ax.semilogx(f, np.abs(Ze))
+axt.semilogx(f, np.angle(Ze), 'r')
+ax.set(xlabel='Frequency [Hz]', ylabel='Impedance [Ohm]')
+axt.set(ylabel='Phase [rad]')
+#axt.tick_params(axis='y')
+ax.grid(which='both')
 plt.show()
