@@ -1,6 +1,131 @@
 import numpy as np
 import scipy.signal as sig
 
+class EqualizerFilter:
+
+    def __init__(self, f_type, fc, Q, dBgain=0, fs=48e3):
+        # f_type ("LP","HP")
+        self.b, self.a = self.get_filter_coefficients(f_type, fc, Q, dBgain, fs)
+
+    def get_filter_coefficients(self, f_type, Fc, Q, dBgain, fs):
+
+        wc = 2*np.pi*Fc/fs
+        alpha = np.sin(wc)/(2*Q)
+        A = 10**(dBgain/40)
+
+
+        if f_type == "LP":
+
+            b0 = (1 - np.cos(wc))/2
+            b1 = 1 - np.cos(wc)
+            b2 = (1 - np.cos(wc))/2
+            a0 = 1 + alpha
+            a1 = -2*np.cos(wc)
+            a2 = 1 - alpha
+
+        elif f_type == "HP":
+
+            b0 = (1 + np.cos(wc))/2
+            b1 = -(1 + np.cos(wc))
+            b2 = (1 + np.cos(wc))/2
+            a0 = 1 + alpha
+            a1 = -2*np.cos(wc)
+            a2 = 1 - alpha
+
+        elif f_type == "BP":
+
+            b0 = alpha
+            b1 = 0
+            b2 = -alpha
+            a0 = 1 + alpha
+            a1 = -2*np.cos(wc)
+            a2 = 1 - alpha
+
+        elif f_type == "peak":
+
+            b0 = 1 + alpha*A
+            b1 = -2*np.cos(wc)
+            b2 = 1 - alpha*A
+            a0 = 1 + alpha/A
+            a1 = -2*np.cos(wc)
+            a2 = 1 - alpha/A
+
+        elif f_type == "LS":
+
+            b0 = A*((A+1) - (A-1)*np.cos(wc) + 2*np.sqrt(A)*alpha)
+            b1 = 2*A*((A-1) - (A+1)*np.cos(wc))
+            b2 = A*((A+1) - (A-1)*np.cos(wc) - 2*np.sqrt(A)*alpha)
+            a0 = (A+1) + (A-1)*np.cos(wc) + 2*np.sqrt(A)*alpha
+            a1 = -2*((A-1) + (A+1)*np.cos(wc))
+            a2 = (A+1) + (A-1)*np.cos(wc) - 2*np.sqrt(A)*alpha
+
+        elif f_type == "HS":
+
+            b0 = A*((A+1) + (A-1)*np.cos(wc) + 2*np.sqrt(A)*alpha)
+            b1 = -2*A*((A-1) + (A+1)*np.cos(wc))
+            b2 = A*((A+1) + (A-1)*np.cos(wc) - 2*np.sqrt(A)*alpha)
+            a0 = (A+1) - (A-1)*np.cos(wc) + 2*np.sqrt(A)*alpha
+            a1 = 2*((A-1) - (A+1)*np.cos(wc))
+            a2 = (A+1) - (A-1)*np.cos(wc) - 2*np.sqrt(A)*alpha
+
+        elif f_type == "notch":
+
+            b0 = 1
+            b1 = -2*np.cos(wc)
+            b2 = 1
+            a0 = 1 + alpha
+            a1 = -2*np.cos(wc)
+            a2 = 1 - alpha
+
+        elif f_type == "AP":
+
+            b0 = 1 - alpha
+            b1 = -2*np.cos(wc)
+            b2 = 1 + alpha
+            a0 = 1 + alpha
+            a1 = -2*np.cos(wc)
+            a2 = 1 - alpha
+
+        else:
+            raise ValueError('The filtre type {} is incorrect'.format(f_type))
+
+        # normalize filter coefficients so that a0 = 1
+        b = [b0/a0, b1/a0, b2/a0]
+        a = [1, a1/a0, a2/a0]
+
+        return b, a
+
+
+def FRF(N, *filters):
+    """ claculate FRF as a multiplication of individual FRFs provided in filters list
+    Args:
+        N: number of points to plot the FRF
+    Returns:
+        W, H: angular frequency axis (in [rad]), FRF of the filters in series 
+    """
+    H = 1
+    for filter in filters:
+        W, Htemp = signal.freqz(filter.b, filter.a, worN=N)
+        H *= Htemp
+
+    return W, H
+
+
+def filtering(x, *filters):
+    """ use of lfilter on a filters connected in series
+    Args:
+        x: input signal
+    Returns:
+        y: output signal
+    """
+    y = x
+    for filter in filters:
+        y = signal.lfilter(filter.b, filter.a, y)
+
+    return y
+
+
+
 def normalize(data):
     #normalize data depending on the bit depth
     if data.dtype == np.int16:
@@ -187,8 +312,11 @@ def dynamic_rms_follower(x, averaging_time, Fs):
     return x_rms_output
 
 
-def gain_factor_smoothing(x, attack_coeff, release_coeff):
+def gain_factor_smoothing(x, attack_time, release_time, Fs):
     y = np.zeros_like(x)
+
+    attack_coeff  = 1 - np.exp(-2.2 / (attack_time * Fs))
+    release_coeff = 1 - np.exp(-2.2 / (release_time * Fs))
 
     for n in range(1, len(x)):
         if x[n] > x[n-1]:
