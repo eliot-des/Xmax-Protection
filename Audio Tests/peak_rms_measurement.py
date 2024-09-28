@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.io.wavfile import read
-
+from lib import dynamic_peak_follower1, dynamic_peak_follower2, dynamic_rms_follower
 
 
 Fs = 48000
