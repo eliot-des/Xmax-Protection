@@ -11,6 +11,9 @@ def normalize(data):
         data = data
     else: 
         raise ValueError('Bit depth not supported')
+
+    data = data/np.max(np.abs(data))
+    
     return data
 
 
