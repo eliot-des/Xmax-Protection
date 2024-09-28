@@ -14,15 +14,15 @@ from lib import normalize, multibandChebyshev1Filters, multibandEllipticFilters,
 # The peak of the displacement signal is calculated for each band.
 #================================================================================
 
-Fs, v = read('Audio Tests/ShookOnes.wav')
+Fs, v = read('Audio Tests/Thriller.wav')
 v = v[:,0]
 v = normalize(v)    #normalize the signal to 1
 
-G = 8               #gain of the amplifier -> Max tension in volts
+G = 10               #gain of the amplifier -> Max tension in volts
 u = G*v             #tension in volts
 
 t = np.arange(0, len(v)/Fs, 1/Fs)
-tstart   = 2            #start time in seconds
+tstart   = 0            #start time in seconds
 duration = 1            #duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
@@ -30,7 +30,7 @@ t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 #================================================================================
 
 #Defining Xmax
-Xmax = 0.0015 
+Xmax = 0.0012 
 
 # Thiele-small parameters
 loudspeakers = {'full-range1' :'Dayton_CE4895-8',
@@ -40,7 +40,7 @@ loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['full-range2']
+loudspeaker = loudspeakers['full-range1']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
@@ -99,11 +99,18 @@ ax['A'].plot(t, u,'k', label='Tension',alpha=0.3)
 ax['A'].set(xlabel='Time [s]', ylabel='Amplitude [V]', xlim=(tstart, tstart+duration))
 ax['A'].grid()
 ax['A'].legend(loc='upper left')
+ax['A'].set_yticks(np.linspace(-G*1.02, G*1.02, 7))
+ax['A'].set(ylim=(-G*1.02, G*1.02))
 
 Axtwin = ax['A'].twinx()
 Axtwin.plot(t, x, label='Displacement')
+Axtwin.plot(t, Xmax*np.ones(len(t))*1e3, 'r--',alpha=0.5, label='Xmax')
 Axtwin.set(ylabel='Displacement [mm]')
 Axtwin.legend(loc='lower left')
+
+a = max(-Axtwin.get_yticks()[0], Axtwin.get_yticks()[-1])
+Axtwin.set_yticks(np.linspace(-a, a, len(ax['A'].get_yticks())))
+
 
 
 for i in range(len(sos_filters)):
@@ -121,11 +128,12 @@ Bxtwin.set(ylabel='|X/U| [mm/V]')
 for i in range(len(sos_filters)):
     letter = chr(ord('C') + i)
 
-    ax[letter].plot(t, np.abs(x_filt[i]), label='$x_{{filt}}^{}$'.format(i+1), color = colors[i])
+    ax[letter].plot(t, x_filt[i], label='$x_{{filt}}^{}$'.format(i+1), color = colors[i])
     ax[letter].plot(t, x_peak[i], 'k', label='Peak($x_{{filt}}^{}$)'.format(i+1))
     ax[letter].plot(t, x_rms[i], color='crimson', label='RMS($x_{{filt}}^{}$)'.format(i+1))
     ax[letter].set(xlabel='Time [s]', ylabel='Displacement [mm]')
     ax[letter].grid()
     ax[letter].legend()
+    ax[letter].set(xlim=(tstart, tstart+duration))
 plt.show()
 
