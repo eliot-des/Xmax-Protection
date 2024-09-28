@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig 
 from scipy.io.wavfile import read
-from lib import normalize, multibandChebyshev1Filters, multibandEllipticFilters, dynamic_peak_follower1
+from lib import normalize, multibandChebyshev1Filters, multibandEllipticFilters, dynamic_peak_follower1, dynamic_rms_follower
 
 #================================================================================
 # The following code reads an audio file and processes it with a multi-band.
@@ -34,9 +34,9 @@ Xmax = 0.0015
 
 # Thiele-small parameters
 loudspeakers = {'full-range1' :'Dayton_CE4895-8',
-                'full-range2' :'Dayton_HARB252­-8',
+                'full-range2' :'Dayton_HARB252-8',
                 'woofer1': 'Peerless_HDSP830860',
-                'woofer2': 'Dayton_DCS165­-4',
+                'woofer2': 'Dayton_DCS165-4',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
@@ -68,17 +68,20 @@ fc = [40, 90, 200]     #cutoff frequencies
 
 attack_time  = 0.00005      # Attack time in seconds
 release_time = 0.07         # Release time in seconds
+averaging_time = 0.05       # Averaging time in seconds
 
 #sos_filters = multibandChebyshev1Filters(4, fc, Fs, 1)
 sos_filters = multibandEllipticFilters(4, fc, Fs, 1, 60)
 
 x_filt      = np.zeros((len(sos_filters), len(x)))
 x_peak      = np.zeros((len(sos_filters), len(x)))
+x_rms       = np.zeros((len(sos_filters), len(x)))
 H_chebyshev = np.zeros((len(sos_filters), len(f)), dtype=complex)
 
 for i in range(len(sos_filters)):
     x_filt[i] = sig.sosfilt(sos_filters[i], x)
     x_peak[i] = dynamic_peak_follower1(x_filt[i], attack_time, release_time, Fs)
+    x_rms[i]  = dynamic_rms_follower(x_filt[i], averaging_time, Fs)
     _, H_chebyshev[i] = sig.sosfreqz(sos_filters[i], worN = f, fs = Fs)
 #================================================================================
 # Plot
@@ -120,6 +123,7 @@ for i in range(len(sos_filters)):
 
     ax[letter].plot(t, np.abs(x_filt[i]), label='$x_{{filt}}^{}$'.format(i+1), color = colors[i])
     ax[letter].plot(t, x_peak[i], 'k', label='Peak($x_{{filt}}^{}$)'.format(i+1))
+    ax[letter].plot(t, x_rms[i], color='crimson', label='RMS($x_{{filt}}^{}$)'.format(i+1))
     ax[letter].set(xlabel='Time [s]', ylabel='Displacement [mm]')
     ax[letter].grid()
     ax[letter].legend()

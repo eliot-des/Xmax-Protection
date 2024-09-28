@@ -6,9 +6,9 @@ from scipy.signal import freqs
 
 # Thiele-small parameters
 loudspeakers = {'full-range1' :'Dayton_CE4895-8',
-                'full-range2' :'Dayton_HARB252­-8',
+                'full-range2' :'Dayton_HARB252-8',
                 'woofer1': 'Peerless_HDSP830860',
-                'woofer2': 'Dayton_DCS165­-4',
+                'woofer2': 'Dayton_DCS165-4',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
