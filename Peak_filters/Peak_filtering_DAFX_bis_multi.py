@@ -5,7 +5,8 @@ import sys
 
 """
 Frequency response of Peak filters 
-Filter model based on DAFX book, P64 - P83 PDF
+Filter model based on DAFX book, P66 - P85 PDF
+References [Whi86, RM87, Dut89a, HB93, Bri94, -Orf96-, -Orf97-, Zol05]
 """
 
 # sampling frequency
@@ -25,20 +26,20 @@ print(G_list)
 
 
 # model parameter
-d = -np.cos(2*np.pi*fc/Fs)
+K = np.tan(np.pi*fc/Fs)
 V0 = 10**(G_list/20)
-H0 = V0 -1
-
-c = np.array([(np.tan(np.pi*fb/Fs) -i)/(np.tan(np.pi*fb/Fs) +i) for i in V0]) # cut case
+Q = 10
 
 
 # filters coeff
-b0 = np.array([1+j/2*(1+k) for j, k in zip(H0, c)])
-b1 = np.array([d*(1-k) for k in c])
-b2 = np.array([-(k+j/2*(1+k)) for j, k in zip(H0, c)])
+b0 = np.array([(1+K/Q+K**2)/(1+K/(j*Q)+K**2) for j in V0])
+b1 = np.array([(2*(K**2-1))/(1+K/(j*Q)+K**2) for j in V0])
+b2 = np.array([(1-K/Q+K**2)/(1+K/(j*Q)+K**2) for j in V0])
 a0 = np.ones(len(G_list))
 a1 = b1
-a2 = np.array([-k for k in c])
+a2 = np.array([(1-K/(j*Q)+K**2)/(1+K/(j*Q)+K**2) for j in V0])
+
+# sys.exit()
 
 # Concatenate b0, b1, b2 into a matrix B where each row is [b0, b1, b2]
 B = np.column_stack([b0, b1, b2])
@@ -70,7 +71,7 @@ for i in range(sos.shape[0]):
 ax[0].axhline(y=-3, color='red', linestyle='--', label='-3 dB cutoff')
 ax[0].set(xlim = (20, 210), ylim = (-45, 3))
 ax[0].set_ylabel('Magnitude [dB ref=1]')
-ax[0].set_title(f'DAFX P64 peak filter response. Fc: {fc} Hz - Bandwidth: {fb} Hz')
+ax[0].set_title(f'DAFX P66 peak filter response. Fc: {fc} Hz - Q: {np.round(Q,2)}')
 ax[0].grid(which='both', axis='both')
 ax[0].legend(loc='lower right')
 
@@ -78,5 +79,5 @@ ax[1].set(xlabel = 'Frequency [Hz]', ylabel = 'Angle [deg]')
 ax[1].set(xlim = (20, 210), ylim = (-90, 90))
 ax[1].grid(which='both', axis='both')
 
-# plt.savefig('Figures/Peak_filtering_DAFX.pdf')
+# plt.savefig('Figures/Peak_filtering_DAFX_bis.pdf')
 plt.show()
