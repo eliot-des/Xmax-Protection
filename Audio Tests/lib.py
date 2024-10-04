@@ -96,33 +96,83 @@ class EqualizerFilter:
         return b, a
 
 
-def FRF(N, *filters):
-    """ claculate FRF as a multiplication of individual FRFs provided in filters list
-    Args:
-        N: number of points to plot the FRF
-    Returns:
-        W, H: angular frequency axis (in [rad]), FRF of the filters in series 
-    """
-    H = 1
-    for filter in filters:
-        W, Htemp = signal.freqz(filter.b, filter.a, worN=N)
-        H *= Htemp
+class PeakFilterTD2:
+    def __init__(self, Fc, Q, dBgain=0, fs=48e3):
 
-    return W, H
+        self.fs = fs
+        self.get_filter_coefficients(Fc, Q, dBgain)
+        
+        # memory
+        
+        self.d0 = 0
+        self.d1 = 0
+        self.d2 = 0
+        self.d3 = 0
+
+    def get_filter_coefficients(self, Fc, Q, dBgain):
+
+        wc = 2*np.pi*Fc/self.fs
+        alpha = np.sin(wc)/(2*Q)
+        A = 10**(dBgain/40)
+
+        b0 = 1 + alpha*A
+        b1 = -2*np.cos(wc)
+        b2 = 1 - alpha*A
+        a0 = 1 + alpha/A
+        a1 = -2*np.cos(wc)
+        a2 = 1 - alpha/A
+
+        # normalize filter coefficients so that a0 = 1
+        self.b = [b0/a0, b1/a0, b2/a0]
+        self.a = [1,     a1/a0, a2/a0]
+
+    def filter(self, x, Fc, Q, dBgain):
+        #recompute filter coefficients
+        self.get_filter_coefficients(Fc, Q, dBgain)
+
+        y = self.b[0]*x + self.b[1]*self.d0 + self.b[2]*self.d1 - self.a[1]*self.d2 - self.a[2]*self.d3
+
+        #update memory
+        self.d1 = self.d0 
+        self.d0 = x
+        self.d3 = self.d2
+        self.d2 = y
+
+        return y
+
+class HighPassFilterTD2:
+    def __init__(self, Fc, Q, fs=48e3):
+        self.fs = fs
+        self.z1 = 0
+        self.z2 = 0
+        self.get_filter_coefficients(Fc, Q)
+
+    def get_filter_coefficients(self, Fc, Q):
+        wc = 2*np.pi*Fc/self.fs
+        alpha = np.sin(wc)/(2*Q)
+        b0 = (1 + np.cos(wc))/2
+        b1 = -(1 + np.cos(wc))
+        b2 = (1 + np.cos(wc))/2
+        a0 = 1 + alpha
+        a1 = -2 * np.cos(wc)
+        a2 = 1 - alpha
+
+        # Normalize filter coefficients so that a0 = 1
+        self.b = [b0/a0, b1/a0, b2/a0]
+        self.a = [1, a1/a0, a2/a0]
+
+    def filter(self, x, Fc, Q):
+        # Recompute filter coefficients
+        self.get_filter_coefficients(Fc, Q)
+
+        # Direct Form II Transposed implementation
+        y = self.b[0]*x + self.z1
+        self.z1 = self.b[1]*x - self.a[1]*y + self.z2
+        self.z2 = self.b[2]*x - self.a[2]*y
+
+        return y
 
 
-def filtering(x, *filters):
-    """ use of lfilter on a filters connected in series
-    Args:
-        x: input signal
-    Returns:
-        y: output signal
-    """
-    y = x
-    for filter in filters:
-        y = signal.lfilter(filter.b, filter.a, y)
-
-    return y
 
 
 
@@ -246,6 +296,40 @@ def multibandChebyshev1Filters(order, fc, fs, rp):
         
     return sos
 
+#function to return a list of sos sections for multi-band processing with Chebyshev type 2 filters
+def multibandChebyshev2Filters(order, fc, fs, rs):
+
+    Nbrfilters = len(fc) +1
+
+    sos = [None] * Nbrfilters
+
+    #create the low and high pass filters
+    sos[0] = sig.cheby2(order, rs, fc[0], 'low', fs = fs, output='sos')
+    sos[-1] = sig.cheby2(order, rs, fc[-1], 'high', fs = fs, output='sos')
+
+    #create the band-pass filters
+    for i in range(1, Nbrfilters-1):
+        sos[i] = sig.cheby2(order, rs, (fc[i-1], fc[i]), 'bandpass', fs = fs, output='sos')
+        
+    return sos
+
+#function to return a list of sos sections for multi-band processing with bessel filters
+def multibandBesselFilters(order, fc, fs, norm='phase'):
+        
+        Nbrfilters = len(fc) +1
+    
+        sos = [None] * Nbrfilters
+    
+        #create the low and high pass filters
+        sos[0] = sig.bessel(order+1, fc[0], 'low', norm=norm, fs = fs, output='sos')
+        sos[-1] = sig.bessel(order+1, fc[-1], 'high', norm=norm, fs = fs, output='sos')
+    
+        #create the band-pass filters
+        for i in range(1, Nbrfilters-1):
+            sos[i] = sig.bessel(order, (fc[i-1], fc[i]), 'bandpass', fs = fs, output='sos')
+            
+        return sos
+
 
 
 def dynamic_peak_follower1(x, attack_time, release_time, sample_rate):
@@ -296,6 +380,26 @@ def dynamic_peak_follower2(x, attack_time, release_time, Fs):
     
     return x_peak_output
 
+
+#sample by sample peak follower with attack and release time constants
+def dynamic_peak_follower_sbs(x, x_peak, attack_time, release_time, Fs):
+        
+        # Attack and release coefficients based on time constants
+        attack_coeff  = 1 - np.exp(-2.2 / (attack_time * Fs))
+        release_coeff = 1 - np.exp(-2.2 / (release_time * Fs))
+    
+        # Process the sample
+        abs_x = np.abs(x)
+        
+        if abs_x > x_peak:
+            x_peak = (1 - attack_coeff) * x_peak + attack_coeff * abs_x
+        else:
+            x_peak = (1 - release_coeff) * x_peak
+    
+        return x_peak
+
+
+
 #RMS Measurement
 def dynamic_rms_follower(x, averaging_time, Fs):
     
@@ -327,3 +431,18 @@ def gain_factor_smoothing(x, attack_time, release_time, Fs):
         y[n] = (1 - k) * y[n-1] + k * x[n]
 
     return y
+
+
+def gain_factor_smoothing_sbs(x, x_initial, attack_time, release_time, Fs):
+
+    attack_coeff  = 1 - np.exp(-2.2 / (attack_time * Fs))
+    release_coeff = 1 - np.exp(-2.2 / (release_time * Fs))
+
+    if x > x_initial:
+        k = attack_coeff
+    else:
+        k = release_coeff
+    
+    x = (1 - k) * x_initial + k * x
+
+    return x
