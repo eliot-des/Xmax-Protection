@@ -446,3 +446,18 @@ def gain_factor_smoothing_sbs(x, x_initial, attack_time, release_time, Fs):
     x = (1 - k) * x_initial + k * x
 
     return x
+
+
+def gain_factor_smoothing_sbs_bis(x, x_initial, attack_time, release_time, Fs):
+
+    attack_coeff  = 1 - np.exp(-2.2 / (attack_time * Fs))
+    release_coeff = 1 - np.exp(-2.2 / (release_time * Fs))
+
+    if x < x_initial:    # change of the sign compared to gain_factor_smoothing_sbs
+        k = attack_coeff
+    else:
+        k = release_coeff
+    
+    x = (1 - k) * x_initial + k * x
+
+    return x

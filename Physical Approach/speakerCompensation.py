@@ -32,7 +32,7 @@ a = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms+Bl**2, Rec/Cms])
 #compensation analog filter
 Mms_comp = Mms
 Rms_comp = Rms
-Cms_comp = Cms*np.arange(0.1, 2, 0.2)
+Cms_comp = Cms*np.arange(0.1, 1, 0.2)
 
 b_comp = a
 a_comp = [None]*len(Cms_comp)
@@ -56,20 +56,20 @@ for i in range(len(Cms_comp)):
 
 fig, ax = plt.subplots(2, 1, sharex=True)
 
-ax[0].semilogx(f, np.abs(h), '--r', label='Original')
+ax[0].semilogx(f, np.abs(h)*1000, '--r', label='Original')
 
 #create color map for the bands
 colors = plt.cm.viridis(np.linspace(0.1, 0.9, len(Cms_comp)))
 
 for i in range(len(Cms_comp)):
-    ax[0].semilogx(f, np.abs(h*h_comp[i]), color = colors[i], label=f'Cms: {Cms_comp[i]:.2e} F')
+    ax[0].semilogx(f, np.abs(h*h_comp[i])*1000, color = colors[i], label=f'Cms: {Cms_comp[i]:.2e} m/N')
     ax[1].semilogx(f, np.rad2deg(np.angle(h_comp[i])), color = colors[i])
 
 ax[0].set(xlim = (20, 210)) #, ylim = (-45, 3)
-ax[0].set_ylabel('Magnitude [dB ref=1]')
+ax[0].set_ylabel('Magnitude [mm/V]')
 # ax[0].set_title()
 ax[0].grid(which='both', axis='both')
-ax[0].legend(loc='lower right')
+ax[0].legend(loc='upper right')
 
 ax[1].set(xlabel = 'Frequency [Hz]', ylabel = 'Angle [deg]')
 ax[1].set(xlim = (10, f[-1]))
