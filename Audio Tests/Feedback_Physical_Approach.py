@@ -2,8 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig 
 from scipy.io.wavfile import read
-from lib import normalize, dynamic_peak_follower2, gain_factor_smoothing_sbs_bis
+from lib import normalize, dynamic_peak_follower2, gain_factor_smoothing_sbs_bis, dynamic_peak_follower_sbs
 import sys
+
+plt.rc('lines', linewidth=2)
+plt.rc('font', size=14)
+plt.rc('axes', linewidth=1.5, labelsize=14)
+plt.rc('legend', fontsize=14)
 
 #================================================================================
 #============= Definition of a signal being the input voltage ===================
@@ -42,10 +47,6 @@ t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 #==== Importing speaker TS parameters and defining the displacement filter ======
 #================================================================================
 
-#Defining Xmax and margin
-Xmax = 1 #in mm 
-Xmargin = 0.5
-
 # Thiele-small parameters
 loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'full-range2' :'Dayton_HARB252-8',
@@ -62,11 +63,29 @@ with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
         exec(line)
 
 #analog coefficients
-b = np.array([0, 0, 0, Bl])
-a = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms+Bl**2, Rec/Cms])
+# b = np.array([0, 0, 0, Bl])
+# a = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms+Bl**2, Rec/Cms])
+
+B_LF = np.array([0, 0, Bl/Rec])         # Low-frequency approximation
+A_LF = np.array([Mms, Rms+Bl**2/Rec, 1/Cms])
 
 #convert to digital filter
-b, a = sig.bilinear(b, a, Fs)
+# b, a = sig.bilinear(b, a, Fs)
+
+b = np.zeros(3)                         # Analytical z-domain coeff from Low-frequency approximation
+b[0] = B_LF[2]/Fs**2
+b[1] = 2*b[0]
+b[2] = b[0]
+
+a = np.zeros(3)
+a[0] = A_LF[2]/Fs**2 + 2*A_LF[1]/Fs + 4*A_LF[0]
+a[1] = 2*A_LF[2]/Fs**2 - 8*A_LF[0]
+a[2] = A_LF[2]/Fs**2 + 4*A_LF[0] - 2*A_LF[1]/Fs
+
+#normalize coeff
+a0 = a[0]
+a = a/a0
+b = b/a0
 
 
 #================================================================================
@@ -75,16 +94,29 @@ b, a = sig.bilinear(b, a, Fs)
 
 #Displacement calculation without feedback control
 
-x2 = sig.lfilter(b, a, u)    #displacement in m
+# x2 = sig.lfilter(b, a, u)    #displacement in m
+
+x2 = np.zeros_like(u)
+d = np.zeros(4) # memory buffer for Direct Form I
+
+for n in range(len(u)):
+    x2[n] = b[0]*u[n] + b[1]*d[0] + b[2]*d[1] - a[1]*d[2] - a[2]*d[3]
+
+    d[1] = d[0]
+    d[0] = u[n]
+    d[3] = d[2]
+    d[2] = x2[n]
+
 x2*= 1e3                     #displacement in mm
+
 
 # fig, ax = plt.subplots()
 # ax.plot(t, u, label='Sweep')
 # ax.plot(t, x2, label='Estimated displacement')
-# ax.axhline(y=Xmax, color='red', linestyle='--', label='Xmax')
 # ax.set_xlabel('Time [sec]')
 # ax.set_ylabel('Amplitude [a.u]')
 # ax.legend()
+# ax.grid()
 # plt.show()
 
 # sys.exit()
@@ -98,18 +130,23 @@ x2*= 1e3                     #displacement in mm
 #feedback control algorithm
 
 #Initializations
+
+Xmax = 1 #in mm 
+Xmargin = 0.5
+
 x        = np.zeros(len(u))    #displacement in mm
-x_lim   = np.zeros(len(u))     #limited displacement in mm
+x_lim    = np.zeros(len(u))    #limited displacement in mm
+x_peak   = np.zeros(len(u))    #enveloppe estimator in mm
 Cms_comp = np.zeros(len(u))    #compensation compliance to be adjusted sample by sample
 
-Cms_max = 0.95*Cms        #initial compensation compliance equal (almost) to the real one of the speaker
-Cms_min = 0.1*Cms             #minimum compensation compliance is 10% of the real Cms (CHOICE)
+Cms_max = 0.95*Cms             #initial compensation compliance equal (almost) to the real one of the speaker
+Cms_min = 0.4*Cms              #minimum compensation compliance is 10% of the real Cms (CHOICE)
 Cms_comp[0] = Cms_max
 
-# attack_peak    = 0.00005     # Attack time in seconds
-# release_peak   = 0.07       # Release time in seconds
-attack_smooth  = 0.0005     # Attack time for the gain smoothing function
-release_smooth = 0.0005      # Release time for the gain smoothing function
+attack_peak    = 0.00005     # Attack time in seconds
+release_peak   = 0.1       # Release time in seconds
+attack_smooth  = 0.002     # Attack time for the gain smoothing function
+release_smooth = 0.005      # Release time for the gain smoothing function
 
 # print("k attack: {} sec".format(round(1 - np.exp(-2.2 / (attack_smooth * Fs)), 3)))
 # print("k release: {} sec".format(round(1 - np.exp(-2.2 / (release_smooth * Fs)), 3)))
@@ -117,20 +154,34 @@ release_smooth = 0.0005      # Release time for the gain smoothing function
 # sys.exit()
 
 #create the compensation filter based on the physical approach
-b_comp = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms+Bl**2, Rec/Cms])
-a_comp = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms_comp[0]+Bl**2, Rec/Cms_comp[0]])
+B_comp = A_LF
+A_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[0]])
+
+b_comp = np.zeros(3)
+a_comp = np.zeros(3)
+
+b_comp[0] = A_LF[0]*4*Fs**2+A_LF[1]*2*Fs+A_LF[2]
+b_comp[1] = -2*A_LF[0]*4*Fs**2+2*A_LF[2]
+b_comp[2] = A_LF[0]*4*Fs**2-A_LF[1]*2*Fs+A_LF[2]
+
+a_comp[0] = A_LF[0]*4*Fs**2+A_LF[1]*2*Fs+A_comp[2]
+a_comp[1] = -2*A_LF[0]*4*Fs**2+2*A_comp[2]
+a_comp[2] = A_LF[0]*4*Fs**2-A_LF[1]*2*Fs+A_comp[2]
 
 f = np.geomspace(1, Fs/2, 1000)
 w   = 2*np.pi*f
 
-# _, h = sig.freqs(b_comp, a_comp, worN=w)
+# _, h = sig.freqs(B_comp, A_comp, worN=w)
+# _, H = sig.freqz(b_comp, a_comp, worN=f, fs=Fs)
 
 # fig, ax = plt.subplots()
 
-# ax.semilogx(f, 20*np.log10(np.abs(h)))
+# ax.semilogx(f, 20*np.log10(np.abs(h)), '--r', label='theoritical')
+# ax.semilogx(f, 20*np.log10(np.abs(H)), '-.b', label='analytically bilinearized')
 # ax.set_xlabel('Frequency  [Hz]')
 # ax.set_ylabel('Gain [dB]')
 # ax.grid(which='both')
+# ax.legend()
 # plt.show()
 
 # sys.exit()
@@ -140,21 +191,25 @@ w   = 2*np.pi*f
 #================================== Main loop ===================================
 #================================================================================
 
-zi = sig.lfilter_zi(b, a) * u[0]            # Scale by the first sample of u to initialize properly
-zi_comp = sig.lfilter_zi(b_comp, a_comp) * u[0]   # Scale by the first sample of u to initialize properly
-
-# sys.exit()
+d_DFI = np.zeros(4)     # memory buffer for Direct Form I
+d_TDFII = np.zeros(2)   # memory buffer for Transposed Direct Form I
+a_comp = np.zeros(3)    # denumerator coefficient of the compensation filter in the z domain
 
 for i in range(1, len(u)):
     
     #we first estimate the displacement from the u[i] sample
-    x[i], zi = sig.lfilter(b, a, [u[i-1]], zi=zi)    #displacement in m
-    x[i]*=1e3                                        #displacement in mm
+    x[i] = b[0]*u[i] + b[1]*d_DFI[0] + b[2]*d_DFI[1] - a[1]*d_DFI[2] - a[2]*d_DFI[3]
 
-    #x_peak[i] = dynamic_peak_follower_sbs(x[i], x_peak[i-1], attack_peak, release_peak, Fs)
+    d_DFI[1] = d_DFI[0]
+    d_DFI[0] = u[i]
+    d_DFI[3] = d_DFI[2]
+    d_DFI[2] = x[i]
+
+    x_peak[i] = dynamic_peak_follower_sbs(x[i]*1000, x_peak[i-1], attack_peak, release_peak, Fs)
     
     #we then compare the peak of the displacement signal with Xmax
-    if np.abs(x[i]) > Xmax:
+    # if np.abs(x[i]*1000) > Xmax:
+    if np.abs(x_peak[i]) > Xmax:
         # Cms_comp[i] = Cms_min
         Cms_target = Cms_min
     else:
@@ -165,34 +220,49 @@ for i in range(1, len(u)):
     Cms_comp[i] = gain_factor_smoothing_sbs_bis(Cms_target, Cms_comp[i-1], attack_smooth, release_smooth, Fs)
 
     # #we then compute the new compensation coeff filter (zeros are unchanged)...
-    a_comp = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms_comp[i]+Bl**2, Rec/Cms_comp[i]])
+    A_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[i]])
 
     #convert to digital filter
-    # b_comp_d, a_comp_d = sig.bilinear(b_comp, a_comp, Fs)
+    b_comp[0] = A_LF[0]*4*Fs**2+A_LF[1]*2*Fs+A_LF[2]
+    b_comp[1] = -2*A_LF[0]*4*Fs**2+2*A_LF[2]
+    b_comp[2] = A_LF[0]*4*Fs**2-A_LF[1]*2*Fs+A_LF[2]
+
+    a_comp[0] = A_LF[0]*4*Fs**2+A_LF[1]*2*Fs+A_comp[2]
+    a_comp[1] = -2*A_LF[0]*4*Fs**2+2*A_comp[2]
+    a_comp[2] = A_LF[0]*4*Fs**2-A_LF[1]*2*Fs+A_comp[2]
+
+    #normalize coeff
+    a0_comp = a_comp[0]
+    a_comp = a_comp/a0_comp
+    b_comp = b_comp/a0_comp
 
     # #... then apply it to the tension signal
-    # x_lim[i], zi_comp = sig.lfilter(b_comp_d, a_comp_d, [u[i]], zi=zi_comp)
+    x_lim[i] = b_comp[0]*x[i] + d_TDFII[0]
 
+    d_TDFII[0] = b_comp[1]*x[i] - a_comp[1]*x_lim[i] + d_TDFII[1]
+    d_TDFII[1] = b_comp[2]*x[i] - a_comp[2]*x_lim[i]
 
 # sys.exit()
 
-fig, ax = plt.subplots(2, 1)
 
-ax[0].plot(t, u, label='Sweep')
-# ax[0].plot(t, x2+0.05, label='Estimated displacement (whole array)')
-ax[0].plot(t, x, label='Estimated displacement (feedback)')
-ax[0].axhline(y=Xmax, color='red', linestyle='--', label='+Xmax')
-ax[0].axhline(y=-Xmax, color='red', linestyle='--', label='-Xmax')
-ax[0].set_ylabel('Amplitude [a.u]')
-ax[0].legend(loc='lower left')
+#================================================================================
+#================================== Main plot ===================================
+#================================================================================
 
-ax[1].plot(t, x_lim*1000, label='Limited displacement')
-ax[1].set_ylim([-10, 10])
-ax[1].set_xlabel('Time [sec]')
-ax[0].set_ylabel('Amplitude [mm]')
+fig, ax = plt.subplots()
 
-ax1twin = ax[0].twinx()
-ax1twin.plot(t, Cms_comp, 'r', label='Cms compensation')
+ax.plot(t, x*1000, '-.b', linewidth=1, label='Estimated displacement (feedback)')
+ax.plot(t, x_peak, 'r-', linewidth=1, alpha=0.4, label='x_{peak}')
+ax.plot(t, x_lim*1000, 'm', label='Limited displacement (feedback)')
+ax.axhline(y=Xmax, color='red', linestyle='--', label='+Xmax')
+ax.axhline(y=-Xmax, color='red', linestyle='--', label='-Xmax')
+ax.set_ylabel('Amplitude [mm]')
+ax.set_xlabel('Time [sec]')
+ax.legend(loc='lower left')
+ax.grid()
+
+ax1twin = ax.twinx()
+ax1twin.plot(t, Cms_comp, 'k', linewidth=1, label='Cms compensation')
 ax1twin.legend(loc='upper left')
 ax1twin.set(ylabel='Compliance [m/N]')
 
@@ -201,7 +271,7 @@ plt.show()
 sys.exit()
 
 #================================================================================
-#================================== Main plot ===================================
+#================================ Main plot bis =================================
 #================================================================================
 
 fig, ax = plt.subplots(2, 1, sharex = True)
@@ -224,4 +294,3 @@ ax1twin.plot(t, Cms_comp,'r', label='Cms compensation')
 ax1twin.set(ylabel='Compliance [m/N]')
 
 plt.show()
-# %%
