@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import freqs
+from scipy.signal import freqs, freqz
 
 # Develop a state-space model for a loudspeaker
 
@@ -99,11 +99,31 @@ b = b/a0
 
 _, h = freqs(b, a, worN=w)
 
+# Filter coefficient from S to z domain analytically
+
+B_LF = np.array([0, 0, Bl/Rec])
+A_LF = np.array([Mms, Rms+Bl**2/Rec, 1/Cms])
+
+b_LF = np.zeros(3)
+b_LF[0] = B_LF[2]/Fs**2
+b_LF[1] = 2*b_LF[0]
+b_LF[2] = b_LF[0]
+
+a_LF = np.zeros(3)
+a_LF[0] = A_LF[2]/Fs**2 + 2*A_LF[1]/Fs + 4*A_LF[0]
+a_LF[1] = 2*A_LF[2]/Fs**2 - 8*A_LF[0]
+a_LF[2] = A_LF[2]/Fs**2 + 4*A_LF[0] - 2*A_LF[1]/Fs
+
+_, H_LF = freqs(B_LF, A_LF, worN=w)
+_, h_LF = freqz(b_LF, a_LF, worN=f, fs=Fs)
+
 
 fig, ax = plt.subplots()
 ax.semilogx(f, np.abs(H)*1e3, label='from state-space')
 ax.semilogx(f, np.abs(Hxu)*1e3, 'r--', label='theoritical')
 ax.semilogx(f, np.abs(h)*1e3, '-.m', label='analog filter')
+ax.semilogx(f, np.abs(H_LF)*1e3, '-.k', label='analog filter LF approx')
+ax.semilogx(f, np.abs(h_LF)*1e3, ':b', label='analytically digital\n filter LF approx')
 ax.set_xlabel('Frequency [Hz]')
 ax.set_ylabel('|X/U| [mm/V]')
 ax.grid(which='both')
