@@ -398,7 +398,18 @@ def dynamic_peak_follower_sbs(x, x_peak, attack_time, release_time, Fs):
     
         return x_peak
 
+def envelope_follower_klippel(x, fr, Fs):
 
+    y = np.zeros_like(x)
+
+    wr = 2*np.pi*fr
+
+    for n in range(1, len(x)):
+        dx = (x[n] - x[n-1]) * Fs
+
+        y[n] = np.sqrt(x[n]**2 + (dx/wr)**2)
+
+    return y
 
 #RMS Measurement
 def dynamic_rms_follower(x, averaging_time, Fs):
