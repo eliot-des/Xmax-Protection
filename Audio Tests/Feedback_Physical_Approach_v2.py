@@ -32,16 +32,6 @@ duration = 5            #duration time in seconds
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 
-# fig, ax = plt.subplots()
-# ax.plot(t, u, label='Signal')
-# ax.set_xlabel('Time [sec]')
-# ax.set_ylabel('Amplitude [u.a]')
-# ax.legend()
-# plt.show()
-
-# sys.exit()
-
-
 #================================================================================
 #==== Importing speaker TS parameters and defining the displacement filter ======
 #================================================================================
@@ -66,36 +56,15 @@ with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
 
 #optimal minimal compliance to not 
 R_v1 = (Xmax_*Rec/(A*Bl*Cms))
-print('Chosen R = ', np.round(R_v1, 3))
 
-f_R = 20
-omega_R = 2*np.pi*f_R
-
-print((Bl*A/(Rec*Xmax_))**2-omega_R**2*(Rms**2+2*Rms*Bl**2/Rec+Bl**4/Rec**2)>0)
-
-Kms1 = omega_R**2*Mms - np.sqrt((Bl*A/(Rec*Xmax_))**2-omega_R**2*(Rms**2+2*Rms*Bl**2/Rec+Bl**4/Rec**2))
-Kms2 = omega_R**2*Mms + np.sqrt((Bl*A/(Rec*Xmax_))**2-omega_R**2*(Rms**2+2*Rms*Bl**2/Rec+Bl**4/Rec**2))
-R = 1/(Cms*Kms2)
-
-print(f'Root n°1 = {1/Kms1:.2e}, Root n°2 = {1/Kms2:.2e}')
-print(f'Ratio n°1 = {np.round(1/(Cms*Kms2), 3)}, Ratio n°2 = {np.round(1/(Cms*Kms1), 3)}')
-print('Chosen R = ', np.round(R, 3))
-
-# sys.exit()
-
-
-#analog coefficients
-# b = np.array([0, 0, 0, Bl])
-# a = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms+Bl**2, Rec/Cms])
-
-B_LF = np.array([0, 0, Bl/Rec])         # Low-frequency approximation
+# Low-frequency approximation
+B_LF = np.array([0, 0, Bl/Rec])         
 A_LF = np.array([Mms, Rms+Bl**2/Rec, 1/Cms])
 
-#convert to digital filter
-# b, a = sig.bilinear(b, a, Fs)
 
-b = np.zeros(3)                         # Analytical z-domain coeff from Low-frequency approximation
+# Analytical z-domain coeff from Low-frequency approximation
 b[0] = B_LF[2]/Fs**2
+b = np.zeros(3)                         
 b[1] = 2*b[0]
 b[2] = b[0]
 
@@ -111,7 +80,7 @@ b = b/a0
 
 
 #================================================================================
-#========== Filter the input voltage to get an estimated displacment ============
+#========== Filter the input voltage to get an estimated displacement ===========
 #================================================================================
 x2 = np.zeros_like(u)        #displacement in m
 x2 = sig.lfilter(b, a, u)    #displacement in m
@@ -150,40 +119,6 @@ b_comp = b_comp/a0_comp
 f = np.geomspace(1, Fs/2, 1000)
 w   = 2*np.pi*f
 
-# _, h = sig.freqs(B_comp, A_comp, worN=w)
-# _, H = sig.freqz(b_comp, a_comp, worN=f, fs=Fs)
-
-# fig, ax = plt.subplots()
-# ax.semilogx(f, 20*np.log10(np.abs(h)), '--r', label='theoritical')
-# ax.semilogx(f, 20*np.log10(np.abs(H)), '-.b', label='analytically bilinearized')
-# ax.set_xlabel('Frequency  [Hz]')
-# ax.set_ylabel('Gain [dB]')
-# ax.grid(which='both')
-# ax.legend(loc='lower right')
-# plt.show()
-# sys.exit()
-
-x_lim = np.zeros_like(x2)
-d_TDFII = np.zeros(2)   # memory buffer for Transposed Direct Form II
-
-for i in range(len(x2)):
-    x_lim[i] = b_comp[0]*x2[i] + d_TDFII[0]
-
-    d_TDFII[0] = b_comp[1]*x2[i] - a_comp[1]*x_lim[i] + d_TDFII[1]
-    d_TDFII[1] = b_comp[2]*x2[i] - a_comp[2]*x_lim[i]
-
-# fig, ax = plt.subplots()
-# ax.plot(t, u, label='Sweep')
-# ax.plot(t, x2, label='Displacement')
-# ax.plot(t, x_lim, label=f'Filtered displacement - Cms bis ={np.int16(ratio*100)}% Cms0')
-# ax.set_xlabel('Time [sec]')
-# ax.set_ylabel('Amplitude [a.u]')
-# ax.legend(loc='lower left')
-# ax.grid()
-# plt.show()
-# sys.exit()
-
-
 #================================================================================
 #================== Main loop - feedback control algorithm ======================
 #================================================================================
@@ -202,10 +137,7 @@ attack_peak    = 0.00005      # Attack time in seconds
 release_peak   = 0.01         # Release time in seconds
 attack_smooth  = 0.01         # Attack time for the gain smoothing function
 release_smooth = 0.5         # Release time for the gain smoothing function
-# print("k attack: {} sec".format(round(1 - np.exp(-2.2 / (attack_smooth * Fs)), 3)))
-# print("k release: {} sec".format(round(1 - np.exp(-2.2 / (release_smooth * Fs)), 3)))
 
-# sys.exit()
 
 d_DFI = np.zeros(4)     # memory buffer for Direct Form I
 d_TDFII = np.zeros(2)   # memory buffer for Transposed Direct Form I
@@ -225,19 +157,16 @@ for i in range(1, len(u_hp)):
 
     x[i] *= 1000
 
+    # Peak envelope estimation
     # x_peak[i] = dynamic_peak_follower_sbs(x[i], x_peak[i-1], attack_peak, release_peak, Fs) # x_peak in mm
-    
-    # Klippel trick
-    dx = (x[i] - x[i-1]) * Fs
-    x_peak[i] = np.sqrt(x[i]**2 + (dx/wr)**2)
+    # Klippel envelope estimation
+    # x_peak[i] = np.sqrt(x[i]**2 + (((x[i] - x[i-1]) * Fs)/wr)**2)
 
     #we then compare the peak of the displacement signal with Xmax
     # if np.abs(x[i]) > Xmax:
     if x_peak[i] > Xmax:
-        # Cms_comp[i] = Cms_min
         Cms_target = Cms_min
     else:
-        # Cms_comp[i] = Cms_max
         Cms_target = Cms_max
 
     # we then apply the gain smoothing function to the Cms_comp value of the compensation filter
@@ -267,8 +196,6 @@ for i in range(1, len(u_hp)):
 
     d_TDFII[0] = b_comp[1]*u[i] - a_comp[1]*u_hp[i] + d_TDFII[1]
     d_TDFII[1] = b_comp[2]*u[i] - a_comp[2]*u_hp[i]
-
-# sys.exit()
 
 
 #================================================================================
