@@ -30,16 +30,26 @@ a = np.array([Lec*Mms, Rec*Mms+Lec*Rms, Rec*Rms+Lec/Cms+Bl**2, Rec/Cms])
 
 
 #compensation analog filter
+Xmax = 1.2e-3
+
+w0 = 1/np.sqrt(Mms*Cms)
+Q0 = 1/(w0*Cms*(Rms+(Bl**2/Rec)))
+#Q0 = 1/np.sqrt(2)
+A_list = np.geomspace(10, 30, 10)
+
+
 Mms_comp = Mms
-Rms_comp = Rms
-Cms_comp = Cms*np.arange(0.1, 1, 0.2)
 
 b_comp = a
-a_comp = [None]*len(Cms_comp)
+a_comp = [None]*len(A_list)
 
 ""
-for i in range(len(Cms_comp)):
-    a_comp[i] = [Lec*Mms_comp, Rec*Mms_comp+Lec*Rms_comp, Rec*Rms_comp+Lec/Cms_comp[i]+Bl**2, Rec/Cms_comp[i]]
+for i in range(len(A_list)):
+    
+    Cms_comp = Xmax*Rec/(A_list[i]*Bl)
+    Rms_comp = 1/Q0 * np.sqrt(Mms/Cms_comp) - (Bl**2/Rec)
+
+    a_comp[i] = [Lec*Mms_comp, Rec*Mms_comp+Lec*Rms_comp, Rec*Rms_comp+Lec/Cms_comp+Bl**2, Rec/Cms_comp]
 
 
 #frequency response
@@ -47,9 +57,9 @@ for i in range(len(Cms_comp)):
 _, h = sig.freqs(b, a, worN=w)
 
 
-h_comp = [None]*len(Cms_comp)
+h_comp = [None]*len(A_list)
 
-for i in range(len(Cms_comp)):
+for i in range(len(A_list)):
     _, h_comp[i] = sig.freqs(b_comp, a_comp[i], worN=w)
 
 
@@ -59,10 +69,10 @@ fig, ax = plt.subplots(2, 1, sharex=True)
 ax[0].semilogx(f, np.abs(h)*1000, '--r', label='Original')
 
 #create color map for the bands
-colors = plt.cm.viridis(np.linspace(0.1, 0.9, len(Cms_comp)))
+colors = plt.cm.viridis(np.linspace(0.1, 0.9, len(A_list)))
 
-for i in range(len(Cms_comp)):
-    ax[0].semilogx(f, np.abs(h*h_comp[i])*1000, color = colors[i], label=f'Cms: {Cms_comp[i]:.2e} m/N')
+for i in range(len(A_list)):
+    ax[0].semilogx(f, np.abs(h*h_comp[i])*1000, color = colors[i], label=f'Cms: {A_list[i]:.2e} m/N')
     ax[1].semilogx(f, np.rad2deg(np.angle(h_comp[i])), color = colors[i])
 
 ax[0].set(xlim = (20, 210)) #, ylim = (-45, 3)
