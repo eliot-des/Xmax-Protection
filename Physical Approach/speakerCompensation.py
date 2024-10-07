@@ -11,7 +11,7 @@ loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['full-range2']
+loudspeaker = loudspeakers['full-range1']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
@@ -72,8 +72,8 @@ ax[0].grid(which='both', axis='both')
 ax[0].legend(loc='upper right')
 
 ax[1].set(xlabel = 'Frequency [Hz]', ylabel = 'Angle [deg]')
-ax[1].set(xlim = (10, f[-1]))
+ax[1].set(xlim = (10, f[-1])) #, ylim = (0, 100)
 ax[1].grid(which='both', axis='both')
 
-# plt.savefig('Figures/Peak_filtering_Novak_bis.pdf')
+plt.savefig(f'Figures/compensation/compensation_{loudspeaker}.pdf')
 plt.show()
