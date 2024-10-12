@@ -10,9 +10,6 @@ sys.path.append(fpath)
 
 from audio import normalize
 
-print_test()
-print_test2()
-
 #=============================================================
 
 #Implement a basic hard-clipping, for which the side chain is:
