@@ -85,5 +85,4 @@ ax[1].set(xlabel = 'Frequency [Hz]', ylabel = 'Angle [deg]')
 ax[1].set(xlim = (10, f[-1])) #, ylim = (0, 100)
 ax[1].grid(which='both', axis='both')
 
-plt.savefig(f'Figures/compensation/compensation_{loudspeaker}.pdf')
 plt.show()
