@@ -103,7 +103,7 @@ def gain_factor_smoothing(x, attack_time, release_time, Fs):
     release_coeff = 1 - np.exp(-2.2 / (release_time * Fs))
 
     for n in range(1, len(x)):
-        if x[n] > x[n-1]:
+        if x[n] > y[n-1]:
             k = attack_coeff
         else:
             k = release_coeff
