@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig 
 from scipy.io.wavfile import read
-from lib import normalize, multibandChebyshev1Filters, multibandEllipticFilters, dynamic_peak_follower1, dynamic_rms_follower
+from lib import normalize, multibandChebyshev1Filters, multibandChebyshev2Filters, multibandEllipticFilters, multibandBesselFilters, dynamic_peak_follower2, dynamic_rms_follower
 
 #================================================================================
 # The following code reads an audio file and processes it with a multi-band.
@@ -14,9 +14,12 @@ from lib import normalize, multibandChebyshev1Filters, multibandEllipticFilters,
 # The peak of the displacement signal is calculated for each band.
 #================================================================================
 
-Fs, v = read('Audio Tests/Thriller.wav')
+Fs, v = read('Audio/Thriller.wav')
 v = v[:,0]
-v = normalize(v)    #normalize the signal to 1
+v = np.zeros(44100)
+v[4000] = 1
+v[10000]=1
+#v = normalize(v)    #normalize the signal to 1
 
 G = 10               #gain of the amplifier -> Max tension in volts
 u = G*v             #tension in volts
@@ -40,7 +43,7 @@ loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['full-range1']
+loudspeaker = loudspeakers['full-range2']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
@@ -70,19 +73,21 @@ attack_time  = 0.00005      # Attack time in seconds
 release_time = 0.07         # Release time in seconds
 averaging_time = 0.05       # Averaging time in seconds
 
-#sos_filters = multibandChebyshev1Filters(4, fc, Fs, 1)
-sos_filters = multibandEllipticFilters(4, fc, Fs, 1, 60)
+sos_filters = multibandBesselFilters(4, fc, Fs, norm='phase')
+sos_filters = multibandChebyshev1Filters(4, fc, Fs, 1)
+#sos_filters = multibandChebyshev2Filters(4, fc, Fs, 20)
+#sos_filters = multibandEllipticFilters(4, fc, Fs, 1, 60)
 
-x_filt      = np.zeros((len(sos_filters), len(x)))
-x_peak      = np.zeros((len(sos_filters), len(x)))
-x_rms       = np.zeros((len(sos_filters), len(x)))
-H_chebyshev = np.zeros((len(sos_filters), len(f)), dtype=complex)
+x_filt   = np.zeros((len(sos_filters), len(x)))
+x_peak   = np.zeros((len(sos_filters), len(x)))
+x_rms    = np.zeros((len(sos_filters), len(x)))
+H_filter = np.zeros((len(sos_filters), len(f)), dtype=complex)
 
 for i in range(len(sos_filters)):
     x_filt[i] = sig.sosfilt(sos_filters[i], x)
-    x_peak[i] = dynamic_peak_follower1(x_filt[i], attack_time, release_time, Fs)
+    x_peak[i] = dynamic_peak_follower2(x_filt[i], attack_time, release_time, Fs)
     x_rms[i]  = dynamic_rms_follower(x_filt[i], averaging_time, Fs)
-    _, H_chebyshev[i] = sig.sosfreqz(sos_filters[i], worN = f, fs = Fs)
+    _, H_filter[i] = sig.sosfreqz(sos_filters[i], worN = f, fs = Fs)
 #================================================================================
 # Plot
 
@@ -93,7 +98,7 @@ colors = plt.cm.Set2(np.arange(len(sos_filters)))
 fig, ax = plt.subplot_mosaic("AB;CD;EF", figsize=(10, 6), layout='constrained')
 
 #set general title
-fig.suptitle(f'Displacement prediction, peak follower for {loudspeaker} driver, for max voltage = {G} V.')
+fig.suptitle(f'Displacement prediction, peak follower for {loudspeaker} driver,max voltage = {G} V')
 
 ax['A'].plot(t, u,'k', label='Tension',alpha=0.3)
 ax['A'].set(xlabel='Time [s]', ylabel='Amplitude [V]', xlim=(tstart, tstart+duration))
@@ -114,7 +119,7 @@ Axtwin.set_yticks(np.linspace(-a, a, len(ax['A'].get_yticks())))
 
 
 for i in range(len(sos_filters)):
-    ax['B'].semilogx(f, 20*np.log10(np.abs(H_chebyshev[i])), label=f'Band {i+1}', color = colors[i])
+    ax['B'].semilogx(f, 20*np.log10(np.abs(H_filter[i])), label=f'Band {i+1}', color = colors[i])
     ax['B'].set(xlabel='Frequency [Hz]', ylabel='Magnitude [dB]')
     ax['B'].grid(True, which='both')
     ax['B'].legend(loc='upper right')

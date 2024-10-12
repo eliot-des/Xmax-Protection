@@ -32,7 +32,7 @@ ax.grid()
 
 
 
-Fs, x = read('Audio Tests/ShookOnes.wav')
+Fs, x = read('Audio/ShookOnes.wav')
 x = x[:,0]
 x = x/np.max(np.abs(x))
 t = np.arange(len(x))/Fs
