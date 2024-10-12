@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 #-a lookahead delay
 #-a max filter to estimate the envelope
 
+#Base on the paper:
+# Smoothing of the Control Signal without Clipped Output in 
+# Digital Peak Limiters
 #=============================================================
 #create a sinus signal modulated in amplitude by a step signal
 
