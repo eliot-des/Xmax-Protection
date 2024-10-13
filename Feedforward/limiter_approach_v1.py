@@ -97,10 +97,7 @@ d_xu = np.zeros(4) #memory for DF1 X/U filter
 d_ux = np.zeros(4) #memory for DF1 U/X filter
 #=============================================================
 # Implement the limiter in a for loop
-'''
-x = sig.lfilter(bd_xu, ad_xu, u)    #displacement in m
-x*= 1e3                             #displacement in mm
-'''
+
 for n in range(N_attack+N_hold, len(x)):
     
     #filter the tension signal to get the displacement signal
@@ -134,11 +131,12 @@ for n in range(N_attack+N_hold, len(x)):
     # Apply the gain function to the delayed gain computer output
     x_lim[n] = x[n-N_attack] * g[n]
     
+
     #filter the limited displacement signal back to the tension signal
-    u_lim[n]= bd_ux[0]*x_lim[n-1] + bd_ux[1]*d_ux[0] + bd_ux[2]*d_ux[1] - ad_ux[1]*d_ux[2] - ad_ux[2]*d_ux[3]
+    u_lim[n]= bd_ux[0]*x_lim[n] + bd_ux[1]*d_ux[0] + bd_ux[2]*d_ux[1] - ad_ux[1]*d_ux[2] - ad_ux[2]*d_ux[3]
 
     d_ux[1] = d_ux[0]
-    d_ux[0] = x_lim[n-1]
+    d_ux[0] = x_lim[n]
     d_ux[3] = d_ux[2]
     d_ux[2] = u_lim[n]
 
