@@ -95,6 +95,16 @@ def dynamic_rms_follower(x, averaging_time, Fs):
     
     return x_rms_output
 
+def rms_follower_sbs(x, x_prev, averaging_time, Fs):
+
+    averaging_coeff = 1 - np.exp(-2.2 / (averaging_time * Fs))
+
+    #squared RMS value
+    x_rms_square = (1 - averaging_coeff) * x_prev + averaging_coeff * x**2
+    # x_rms_output = np.sqrt(x2_rms)
+    
+    return x_rms_square
+
 
 def gain_factor_smoothing(x, attack_time, release_time, Fs):
     y = np.zeros_like(x)
