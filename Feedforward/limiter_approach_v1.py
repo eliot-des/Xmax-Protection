@@ -22,7 +22,7 @@ music = 'Thriller'
 Fs, u = read(f'Audio/{music}.wav') 
 u = u[:,0]          #select only one channel
 u = normalize(u)    #normalize the signal to 1
-G = 10               #gain of the amplifier -> Max tension in volts
+G = 6.2               #gain of the amplifier -> Max tension in volts
 u*=G             #tension in volts
 
 t = np.arange(0, len(u)/Fs, 1/Fs)
@@ -147,7 +147,7 @@ for n in range(N_attack+N_hold, len(x)):
 
 
 
-#u_lim = sig.lfilter(bd_ux, ad_ux, x_lim)
+u_lim2 = sig.lfilter(bd_ux, ad_ux, x_lim)
 
 
 #=============================================================
@@ -158,6 +158,8 @@ fig, ax = plt.subplots(3, 1, sharex=True)
 
 ax[0].plot(t, u, label=r'$u[n]$')
 ax[0].plot(t, np.roll(u_lim, -N_attack-2), 'k--', label=r'$u_{lim}[n]$')
+ax[0].plot(t, np.roll(u_lim2, -N_attack-1), 'r--', label=r'$u_{lim2}[n]$')
+ax[0].set(ylabel='Amplitude [V]')
 ax[0].set_ylim(-G,G)
 '''
 ax[1].plot(t, x_g, label='Gain computer output')
@@ -181,3 +183,5 @@ for i in range(3):
     ax[i].grid()
     ax[i].set_xlim([t[0], t[-1]])
 plt.show()
+
+
