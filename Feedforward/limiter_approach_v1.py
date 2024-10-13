@@ -22,7 +22,7 @@ music = 'Thriller'
 Fs, u = read(f'Audio/{music}.wav') 
 u = u[:,0]          #select only one channel
 u = normalize(u)    #normalize the signal to 1
-G = 6.2               #gain of the amplifier -> Max tension in volts
+G = 10              #gain of the amplifier -> Max tension in volts
 u*=G             #tension in volts
 
 t = np.arange(0, len(u)/Fs, 1/Fs)
@@ -181,5 +181,4 @@ for i in range(3):
     ax[i].grid()
     ax[i].set_xlim([t[0], t[-1]])
 plt.show()
-
 
