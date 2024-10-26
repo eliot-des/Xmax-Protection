@@ -59,8 +59,8 @@ volatile float val4DACOut = 0.0;
 
 
 // Define filter coefficients
-volatile float b0 = 0.9816582684032612, b1 = -1.9633165368065224, b2 = 0.9816582684032612;
-volatile float a1 = -1.9629800893893397, a2 = 0.9636529842237055;
+volatile float b0 = 0.0010232176384709004, b1 = 0.0020464352769418007, b2 = 0.0010232176384709004;
+volatile float a1 = -1.9075016260460762, a2 = 0.9115944965999598;
 
 // Define filter states
 volatile float x1 = 0, x2 = 0, d1 = 0, d2 = 0;

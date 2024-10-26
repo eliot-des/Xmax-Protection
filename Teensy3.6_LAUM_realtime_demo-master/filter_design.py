@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 fs = 48000
 
-fc = 200  # cut off frequency
-b, a = signal.butter(2, fc/(fs/2), 'high')
+fc = 500  # cut off frequency
+b, a = signal.butter(2, fc/(fs/2), 'low')
 
 f_axis = np.logspace(np.log10(20), np.log10(20e3), 1000)
 _, H = signal.freqz(b, a, worN=f_axis, fs=fs)
