@@ -4,7 +4,7 @@ def limiter(abs_x, thres):
     return np.minimum(1, thres/abs_x)
 
 def limiter_knee(abs_x, thres, knee):
-    return np.minimum(1, 1/(1 + (abs_x/thres)**(1/knee))**knee)
+    return 1, 1/(1 + (abs_x/thres)**(1/knee))**knee
 
 '''
 def compressor(abs_x, thres, ratio, knee):
