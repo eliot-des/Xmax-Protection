@@ -46,7 +46,7 @@ u*=G             #tension in volts
 
 t = np.arange(0, len(u)/Fs, 1/Fs)
 tstart   = 0            #start time in seconds
-duration = 3            #duration time in seconds
+duration = 4              #duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
@@ -80,20 +80,10 @@ a_xu = np.array([Mms, Rms+Bl**2/Rec, 1/Cms])
 bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
 
 
-
-
-
-
-'''
-z, p, k = sig.tf2zpk(bd_ux, ad_ux)
-# Add a small perturbation to the poles to ensure stability
-p = p + 0.01 + 1j * 0.001
-bd_ux, ad_ux = sig.zpk2tf(z, p, k)
-'''
 #=============================================================
 
 # Define Limiter Threshold
-thres = 1e-3
+thres = Xmax_
 
 # Envelope estimation parameters
 attack_time   = 0.002
@@ -166,7 +156,7 @@ for n in range(N_attack+N_hold, len(x)):
     else:
         g[n] = c[n]  # No filtering for the initial samples
     
-    Cms_comp[n] = Cms*x_g[n]
+    Cms_comp[n] = Cms*g[n]
 
     #we then compute the new compensation coeff filter (zeros are unchanged)...
     a_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[n]])
@@ -185,8 +175,6 @@ for n in range(N_attack+N_hold, len(x)):
 
 
 x_lim = sig.lfilter(bd_xu, ad_xu, u_hp)    #displacement in m
-
-
 
 fig, ax = plt.subplots(3, 1, sharex=True)
 
@@ -219,10 +207,16 @@ for i in range(3):
     ax[i].set_xlim([t[0], t[-1]])
 plt.show()
 
+#=============================================================
+# write tension signal u and u_hp to a wav file
 
+norm_factor = np.max(np.abs(u))
 
-x_lim = x_lim * 32767
-x_lim = x_lim.astype(np.int16)
+u    = u   /norm_factor
+u_hp = u_hp/norm_factor
 
-#write the output signal
-write(f'Audio/Limiter/{music}.wav', Fs, x_lim)
+u   *=32767
+u_hp*=32767
+
+write(f'Audio/Limiter/Approach_2/{music}_u.wav', Fs, u.astype(np.int16))
+write(f'Audio/Limiter/Approach_2/{music}_u_hp.wav', Fs, u_hp.astype(np.int16))
