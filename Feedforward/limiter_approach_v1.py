@@ -32,6 +32,20 @@ duration = 3            #duration time in seconds
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 
+'''
+t_max = 0.1
+t_step_start = t_max/3
+t_step_stop  = 2*t_max/3
+step_amp = 0.1
+
+Fs = 44100
+t = np.arange(0, t_max, 1/Fs)
+n = np.arange(0, len(t))
+
+f = 2/t_step_start
+u = G*(step_amp + (1-step_amp)*(n>=t_step_start*Fs)*(n<=t_step_stop*Fs))
+'''
+
 #=============================================================
 
 Xmax = 1            #in mm
@@ -61,16 +75,22 @@ a_xu = np.array([Mms, Rms+Bl**2/Rec, 1/Cms])
 bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
 bd_ux, ad_ux = sig.bilinear(a_xu, b_xu, fs=Fs)
 
-'''
+
 z, p, k = sig.tf2zpk(bd_ux, ad_ux)
-# Add a small perturbation to the poles to ensure stability
-p = p + 0.01 + 1j * 0.001
+# put the poles inside the unit circle if they are outside
+for i in range(len(p)):
+    if np.abs(p[i]) >= 1:
+        p[i] = -0.91
+
 bd_ux, ad_ux = sig.zpk2tf(z, p, k)
-'''
+
+
+
+
 #=============================================================
 
 # Define Limiter Threshold
-thres = 1e-3
+thres = Xmax_
 
 # Envelope estimation parameters
 attack_time   = 0.002
@@ -140,13 +160,33 @@ for n in range(N_attack+N_hold, len(x)):
     d_ux[3] = d_ux[2]
     d_ux[2] = u_lim[n]
 
-    #u_lim[n]/=1e3
 
 
 
 
 u_lim2 = sig.lfilter(bd_ux, ad_ux, x_lim)
+u_lim2 = np.zeros_like(u_lim)
 
+d_ux = np.zeros(4) #memory for DF1 U/X filter
+
+for n in range(4, len(u_lim2)):
+
+    u_lim2[n] = bd_ux[0]*x_lim[n] + bd_ux[1]*d_ux[0] + bd_ux[2]*d_ux[1] - ad_ux[1]*d_ux[2] - ad_ux[2]*d_ux[3]
+
+    d_ux[1] = d_ux[0]
+    d_ux[0] = x_lim[n]
+    d_ux[3] = d_ux[2]
+    d_ux[2] = u_lim2[n]
+
+
+#avoid the oscillations of period Fs/2 by using a low-pass filter
+
+bd_low, ad_low = sig.bessel(4, 20e3, 'low', fs=Fs)
+
+u_lim2 = sig.lfilter(bd_low, ad_low, u_lim2)
+
+
+x_lim2 = sig.lfilter(ad_ux, bd_ux, u_lim2)
 
 #=============================================================
 
@@ -155,18 +195,18 @@ fig, ax = plt.subplots(3, 1, sharex=True)
 #fig.suptitle(f'Sinusoidal signal of frequency {f:.2f} Hz with amplitude modulation.')
 
 ax[0].plot(t, u, label=r'$u[n]$')
-ax[0].plot(t, np.roll(u_lim, -N_attack-2), 'k--', label=r'$u_{lim}[n]$')
-ax[0].plot(t, np.roll(u_lim2, -N_attack-1), 'r--', label=r'$u_{lim2}[n]$')
+ax[0].plot(t, np.roll(u_lim, -N_attack-1), 'k--', label=r'$u_{lim}[n]$')
+#ax[0].plot(t, np.roll(u_lim2, -N_attack-1), '--', label=r'$u_{lim2}[n]$')
 ax[0].set(ylabel='Amplitude [V]')
 ax[0].set_ylim(-G,G)
-'''
-ax[1].plot(t, x_g, label='Gain computer output')
-ax[1].plot(t, c, label=r'$c[n]$')
-ax[1].plot(t, g,color='crimson', label=r'$g[n]$')
-'''
+
+ax[1].plot(t, np.abs(np.roll(u_lim, -N_attack-1)-u), label='u[n]-u_{lim}')
+ax[1].plot(t, np.abs(np.roll(u_lim2, -N_attack-1)-u), label='e_{lim2}')
+
 
 ax[2].plot(t, x, label=r'$x[n]$')
 ax[2].plot(t, np.roll(x_lim, -N_attack),'k--', label=r'$x_{lim}[n]$')
+#ax[2].plot(t, np.roll(x_lim2, -N_attack),'--', label=r'$x_{lim2}[n]$')
 ax[2].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
 ax[2].set(xlabel='Time [s]')
 
@@ -182,3 +222,22 @@ for i in range(3):
     ax[i].set_xlim([t[0], t[-1]])
 plt.show()
 
+
+'''
+#normalize u, u_lim and u_lim2 by the normalization factor applied to u
+
+norm_factor = np.max(np.abs(u))
+
+u=u/norm_factor
+u_lim=u_lim/norm_factor
+u_lim2=u_lim2/norm_factor
+
+u*=32767
+u_lim*=32767
+u_lim2*=32767
+
+
+write(f'Audio/Limiter/{music}_u.wav', Fs, u.astype(np.int16))
+write(f'Audio/Limiter/{music}_u_lim1.wav', Fs, u_lim.astype(np.int16))
+write(f'Audio/Limiter/{music}_u_lim2.wav', Fs, u_lim2.astype(np.int16))
+'''  
