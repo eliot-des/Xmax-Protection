@@ -18,7 +18,7 @@ from audio import normalize
 #=============================================================
 #=============================================================
 
-music = 'Thriller'
+music = 'ShookOnes'
 Fs, u = read(f'Audio/{music}.wav') 
 u = u[:,0]          #select only one channel
 u = normalize(u)    #normalize the signal to 1
@@ -229,4 +229,4 @@ u*=32767
 u_hp*=32767
 
 write(f'Audio/Limiter/Approach_1/{music}_u.wav', Fs, u.astype(np.int16))
-write(f'Audio/Limiter/Approach_1/{music}_u_lim1.wav', Fs, u_hp.astype(np.int16))
+write(f'Audio/Limiter/Approach_1/{music}_u_hp.wav', Fs, u_hp.astype(np.int16))
