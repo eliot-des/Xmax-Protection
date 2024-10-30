@@ -29,6 +29,20 @@ duration = 4            #duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
+
+'''
+t_max = 0.1
+t_step_start = t_max/3
+t_step_stop  = 2*t_max/3
+step_amp = 0.1
+
+Fs = 44100
+t = np.arange(0, t_max, 1/Fs)
+n = np.arange(0, len(t))
+
+f = 2/t_step_start
+u = G*(step_amp + (1-step_amp)*(n>=t_step_start*Fs)*(n<=t_step_stop*Fs))
+'''
 #=============================================================
 
 Xmax = 1.5          #in mm
@@ -61,7 +75,7 @@ bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
 
 # Define Limiter Threshold
 thresh = Xmax_*0.8
-knee = 0.2
+knee = 0.1
 
 # Envelope estimation parameters
 attack_time   = 0.004
@@ -102,7 +116,7 @@ for n in range(N_attack+N_hold, len(x)):
 
     # Apply the gain computer function to the absolute value of the displacement
     x_g[n] = np.minimum(1, thresh/abs_x)
-    #x_g[n] = 1/(1 + (abs_x/thresh)**(1/knee))**knee
+    x_g[n] = 1/(1 + (abs_x/thresh)**(1/knee))**knee
 
     # Apply the minimum filter to the gain computer output
     c[n] = np.min(x_g[n-(N_attack+N_hold):n+1])
@@ -111,11 +125,10 @@ for n in range(N_attack+N_hold, len(x)):
     c[n] = np.minimum(c[n], (1-release_coeff)*c[n-1] + release_coeff*c[n]) #recursive implementation
 
     # Apply the averaging filter to the minimum filter output
-    if n >= N_attack:
-        #g[n] = np.dot(fir_coeffs, c[n-N_attack+1:n+1])
-        g[n] = g[n-1] + 1/N_attack * (c[n] - c[n-N_attack]) #recursive implementation
-    else:
-        g[n] = c[n]  # No filtering for the initial samples
+
+    #g[n] = np.dot(fir_coeffs, c[n-N_attack+1:n+1])
+    g[n] = g[n-1] + 1/N_attack * (c[n] - c[n-N_attack]) #recursive implementation
+
 
     # Apply the gain function to the delayed tension and displacement signals to see what happends...
     x_lim[n] = x[n-N_attack] * g[n]
@@ -147,7 +160,7 @@ ax[2].plot(t, -thresh*np.ones_like(t), 'k--',alpha=0.5)
 ax[2].set(xlabel='Time [s]')
 
 ax2twin = ax[2].twinx()
-ax2twin.plot(t, g, 'g',alpha=0.2, label='g[n]')
+ax2twin.plot(t, np.roll(g, -N_attack), 'g',alpha=0.2, label='g[n+N_{attack}]')
 ax2twin.set(ylabel='Gain')
 ax2twin.legend(loc='upper right')
 
@@ -161,7 +174,7 @@ plt.show()
 #=============================================================
 # write tension signal u and u_hp to a wav file
 
-
+'''
 norm_factor = np.max(np.abs(u))
 
 u    = u   /norm_factor
@@ -172,3 +185,21 @@ u_hp*=32767
 
 write(f'Audio/Limiter/Approach_3/{music}_u.wav', Fs, u.astype(np.int16))
 write(f'Audio/Limiter/Approach_3/{music}_u_hp.wav', Fs, u_hp.astype(np.int16))
+'''
+
+
+fig, ax = plt.subplots(1, 2, sharey=True, layout='constrained')
+ax[0].plot(x, u, 'o', alpha=0.1)
+ax[0].set(xlabel='Displacement [m]', ylabel='Voltage [V]')
+ax[1].plot(x_lim2, u_hp, 'o', alpha=0.1)
+
+ax[1].set(xlabel='Displacement [m]')
+#get ylimits of axe ax[1]:
+ymin, ymax = ax[1].get_ylim()
+ax[1].plot([-Xmax_, -Xmax_], [ymin, ymax], 'r')
+ax[1].plot([Xmax_, Xmax_], [ymin, ymax], 'r')
+ax[1].plot([-thresh, -thresh], [ymin, ymax], 'k--')
+ax[1].plot([thresh, thresh], [ymin, ymax], 'k--')
+ax[0].grid()
+ax[1].grid()
+plt.show()
