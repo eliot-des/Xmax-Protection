@@ -27,7 +27,7 @@ u*=G             #tension in volts
 
 t = np.arange(0, len(u)/Fs, 1/Fs)
 tstart   = 0            #start time in seconds
-duration = 3            #duration time in seconds
+duration = 4            #duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
@@ -72,32 +72,57 @@ with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
 b_xu = np.array([0, 0, Bl/Rec])         
 a_xu = np.array([Mms, Rms+Bl**2/Rec, 1/Cms])
 
-bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
-bd_ux, ad_ux = sig.bilinear(a_xu, b_xu, fs=Fs)
+bdo_xu, ado_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
 
+#just to save the filter coefficients before stabilization
+# o stands for original
+bd_xu, ad_xu = bdo_xu, ado_xu 
+#=============================================================
+# Stabilization of the reciprocal filter, by putting the zeros
+# of the X/U filter inside the unit circle
 
-z, p, k = sig.tf2zpk(bd_ux, ad_ux)
-# put the poles inside the unit circle if they are outside
+z, p, k = sig.tf2zpk(bd_xu, ad_xu)
+#stabilization factor:
+alpha = 0.9
+
 for i in range(len(p)):
-    if np.abs(p[i]) >= 1:
-        p[i] = -0.91
+    if np.abs(z[i]) >= 1:
+        z[i] = (1-alpha)/np.conjugate(z[i]) 
 
-bd_ux, ad_ux = sig.zpk2tf(z, p, k)
+bd_xu, ad_xu = sig.zpk2tf(z, p, k)
 
+f = np.geomspace(20, Fs/2, 1000)
+_, H_analog = sig.freqs(b_xu,   a_xu, worN=f*2*np.pi)
+_, H_digit  = sig.freqz(bd_xu, ad_xu, worN=f, fs=Fs)
 
+# get module difference between analog and digital filter at the 
+# lowest frequency, thencmultiply the gain of the digital filter 
+# by delta_k to match the analog filter's modulus at low freqs.
+delta_k = np.abs(H_analog[0])/np.abs(H_digit[0])
+bd_xu, ad_xu = sig.zpk2tf(z, p, k*delta_k)
+
+bd_ux = ad_xu
+ad_ux = bd_xu
+
+#normalize the reciprocal filter
+ad0 = ad_ux[0]
+ad_ux = ad_ux/ad0
+bd_ux = bd_ux/ad0
 
 
 #=============================================================
 
 # Define Limiter Threshold
 thres = Xmax_
+knee  = 0.2
 
 # Envelope estimation parameters
-attack_time   = 0.002
+attack_time   = 0.004
 hold_time     = 0.004
-release_time  = 0.015
+release_time  = 0.1#1
 
 release_coeff = 1 - np.exp(-2.2/(Fs*release_time))
+
 
 # Convert times to samples
 N_attack  = int(attack_time * Fs)
@@ -105,13 +130,15 @@ N_hold    = int(hold_time * Fs)
 
 
 # Arrays to store results
-u_lim = np.zeros_like(u)
-x     = np.zeros_like(u)
-x_lim = np.zeros_like(x)
-x_lim_= np.zeros_like(x)
-x_g   = np.ones_like(x)
-c     = np.ones_like(x)
-g     = np.ones_like(x)
+u_hp   = np.zeros_like(u)
+x      = np.zeros_like(u)
+x_lim  = np.zeros_like(x)
+x_g    = np.ones_like(x)
+c      = np.ones_like(x)
+g      = np.ones_like(x)
+u_peak = np.zeros_like(x)
+u_rms  = np.zeros_like(x)
+cf_u   = np.zeros_like(x)
 
 d_xu = np.zeros(4) #memory for DF1 X/U filter 
 d_ux = np.zeros(4) #memory for DF1 U/X filter
@@ -119,7 +146,7 @@ d_ux = np.zeros(4) #memory for DF1 U/X filter
 # Implement the limiter in a for loop
 
 for n in range(N_attack+N_hold, len(x)):
-    
+
     #filter the tension signal to get the displacement signal
     x[n] = bd_xu[0]*u[n-1] + bd_xu[1]*d_xu[0] + bd_xu[2]*d_xu[1] - ad_xu[1]*d_xu[2] - ad_xu[2]*d_xu[3]
 
@@ -133,111 +160,73 @@ for n in range(N_attack+N_hold, len(x)):
     abs_x = np.abs(x[n])
 
     # Apply the gain computer function to the absolute value
-    x_g[n] = np.minimum(1, thres/abs_x)
-    #x_g[n] =  gain_computer_compressor(abs_x, thres, 1.5)
-
+    #x_g[n] = np.minimum(1, thres/abs_x)
+    x_g[n] =  1/(1 + (abs_x/thres)**(1/knee))**knee
+    
     # Apply the minimum filter to the gain computer output
     c[n] = np.min(x_g[n-(N_attack+N_hold):n+1])
 
     # Apply exponential release to the minimum filter output
-    c[n] = np.minimum(c[n], (1-release_coeff)*c[n-1] + release_coeff*c[n]) #recursive implementation
+    c[n] = np.minimum(c[n], (1-release_coeff)*c[n-1] + release_coeff*c[n])
 
     # Apply the averaging filter to the minimum filter output
-    if n >= N_attack:
-        g[n] = g[n-1] + 1/N_attack * (c[n] - c[n-N_attack]) #recursive implementation
-    else:
-        g[n] = c[n]  # No filtering for the initial samples
+    g[n] = g[n-1] + 1/N_attack * (c[n] - c[n-N_attack])#recursive implementation
 
     # Apply the gain function to the delayed gain computer output
     x_lim[n] = x[n-N_attack] * g[n]
     
-
     #filter the limited displacement signal back to the tension signal
-    u_lim[n]= bd_ux[0]*x_lim[n] + bd_ux[1]*d_ux[0] + bd_ux[2]*d_ux[1] - ad_ux[1]*d_ux[2] - ad_ux[2]*d_ux[3]
+    u_hp[n]= bd_ux[0]*x_lim[n] + bd_ux[1]*d_ux[0] + bd_ux[2]*d_ux[1] - ad_ux[1]*d_ux[2] - ad_ux[2]*d_ux[3]
 
     d_ux[1] = d_ux[0]
     d_ux[0] = x_lim[n]
     d_ux[3] = d_ux[2]
-    d_ux[2] = u_lim[n]
+    d_ux[2] = u_hp[n]
 
 
-
-
-
-u_lim2 = sig.lfilter(bd_ux, ad_ux, x_lim)
-u_lim2 = np.zeros_like(u_lim)
-
-d_ux = np.zeros(4) #memory for DF1 U/X filter
-
-for n in range(4, len(u_lim2)):
-
-    u_lim2[n] = bd_ux[0]*x_lim[n] + bd_ux[1]*d_ux[0] + bd_ux[2]*d_ux[1] - ad_ux[1]*d_ux[2] - ad_ux[2]*d_ux[3]
-
-    d_ux[1] = d_ux[0]
-    d_ux[0] = x_lim[n]
-    d_ux[3] = d_ux[2]
-    d_ux[2] = u_lim2[n]
-
-
-#avoid the oscillations of period Fs/2 by using a low-pass filter
-
-bd_low, ad_low = sig.bessel(4, 20e3, 'low', fs=Fs)
-
-u_lim2 = sig.lfilter(bd_low, ad_low, u_lim2)
-
-
-x_lim2 = sig.lfilter(ad_ux, bd_ux, u_lim2)
+x_lim_true = sig.lfilter(bdo_xu, ado_xu, u_hp)
 
 #=============================================================
 
-fig, ax = plt.subplots(3, 1, sharex=True)
+fig, ax = plt.subplots(2, 1, sharex=True)
 
-#fig.suptitle(f'Sinusoidal signal of frequency {f:.2f} Hz with amplitude modulation.')
+fig.suptitle(f'{music} - Approach 1 - Att.: {attack_time*1e3} ms, Hold: {hold_time*1e3} ms, Rel.: {release_time*1e3} ms, knee: {knee}')
 
 ax[0].plot(t, u, label=r'$u[n]$')
-ax[0].plot(t, np.roll(u_lim, -N_attack-1), 'k--', label=r'$u_{lim}[n]$')
-#ax[0].plot(t, np.roll(u_lim2, -N_attack-1), '--', label=r'$u_{lim2}[n]$')
+ax[0].plot(t, np.roll(u_hp, -N_attack-1), 'k--', label=r'$u_{hp}[n]$')
 ax[0].set(ylabel='Amplitude [V]')
 ax[0].set_ylim(-G,G)
 
-ax[1].plot(t, np.abs(np.roll(u_lim, -N_attack-1)-u), label='u[n]-u_{lim}')
-ax[1].plot(t, np.abs(np.roll(u_lim2, -N_attack-1)-u), label='e_{lim2}')
 
 
-ax[2].plot(t, x, label=r'$x[n]$')
-ax[2].plot(t, np.roll(x_lim, -N_attack),'k--', label=r'$x_{lim}[n]$')
-#ax[2].plot(t, np.roll(x_lim2, -N_attack),'--', label=r'$x_{lim2}[n]$')
-ax[2].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
-ax[2].set(xlabel='Time [s]')
+ax[-1].plot(t, x, label=r'$x[n]$')
+ax[-1].plot(t, np.roll(x_lim_true,-N_attack),'r', label=r'$x_{lim}^{(true)}[n+N_{attack}+1]$')
+ax[-1].plot(t, np.roll(x_lim, -N_attack),'k--', label=r'$x_{lim}[n+N_{attack}]$')
+ax[-1].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
+ax[-1].plot(t, -thres*np.ones_like(t), 'r--', label='Threshold')
+ax[-1].set(xlabel='Time [s]')
 
-ax2twin = ax[2].twinx()
+ax2twin = ax[-1].twinx()
 ax2twin.plot(t, g, 'g',alpha=0.2, label='Gain function')
 ax2twin.set(ylabel='Gain')
 ax2twin.legend(loc='upper right')
 
-for i in range(3):
+for i in range(len(ax)):
     ax[i].set(ylabel='Amplitude')
     ax[i].legend()
     ax[i].grid()
     ax[i].set_xlim([t[0], t[-1]])
 plt.show()
 
-
-'''
-#normalize u, u_lim and u_lim2 by the normalization factor applied to u
+#normalize u, u_hp by the normalization factor applied to u
 
 norm_factor = np.max(np.abs(u))
 
 u=u/norm_factor
-u_lim=u_lim/norm_factor
-u_lim2=u_lim2/norm_factor
+u_hp=u_hp/norm_factor
 
 u*=32767
-u_lim*=32767
-u_lim2*=32767
+u_hp*=32767
 
-
-write(f'Audio/Limiter/{music}_u.wav', Fs, u.astype(np.int16))
-write(f'Audio/Limiter/{music}_u_lim1.wav', Fs, u_lim.astype(np.int16))
-write(f'Audio/Limiter/{music}_u_lim2.wav', Fs, u_lim2.astype(np.int16))
-'''  
+write(f'Audio/Limiter/Approach_1/{music}_u.wav', Fs, u.astype(np.int16))
+write(f'Audio/Limiter/Approach_1/{music}_u_lim1.wav', Fs, u_hp.astype(np.int16))
