@@ -148,7 +148,7 @@ for n in range(N_attack+N_hold, len(x)):
     c[n] = np.min(x_g[n-(N_attack+N_hold):n+1])
 
     # Apply exponential release to the minimum filter output
-    c[n] = np.minimum(c[n], (1-release_coeff)*c[n-1] + release_coeff*c[n]) #recursive implementation
+    c[n] = np.minimum(c[n], (1-release_coeff)*c[n-1] + release_coeff*c[n])
 
     # Apply the averaging filter to the minimum filter output
     if n >= N_attack:

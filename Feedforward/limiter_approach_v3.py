@@ -115,14 +115,14 @@ for n in range(N_attack+N_hold, len(x)):
     abs_x = np.abs(x[n])
 
     # Apply the gain computer function to the absolute value of the displacement
-    x_g[n] = np.minimum(1, thresh/abs_x)
+    #x_g[n] = np.minimum(1, thresh/abs_x)
     x_g[n] = 1/(1 + (abs_x/thresh)**(1/knee))**knee
 
     # Apply the minimum filter to the gain computer output
     c[n] = np.min(x_g[n-(N_attack+N_hold):n+1])
 
     # Apply exponential release to the minimum filter output
-    c[n] = np.minimum(c[n], (1-release_coeff)*c[n-1] + release_coeff*c[n]) #recursive implementation
+    c[n] = np.minimum(c[n], (1-release_coeff)*c[n-1] + release_coeff*c[n])
 
     # Apply the averaging filter to the minimum filter output
 
