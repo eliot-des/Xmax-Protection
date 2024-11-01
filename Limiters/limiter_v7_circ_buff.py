@@ -39,7 +39,7 @@ Fs = 44100
 t = np.arange(0, t_max, 1/Fs)
 n = np.arange(0, len(t))
 
-f = 20/t_step_start
+f = 100/t_step_start
 x = np.sin(2*np.pi*f*t)
 x = x*(step_amp + (1-step_amp)*(n>=t_step_start*Fs)*(n<=t_step_stop*Fs))
 '''
@@ -69,12 +69,12 @@ t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 #=============================================================
 
 # Define Limiter Threshold
-thres = 0.5
+thres = 0.4
 
 # Envelope estimation parameters
 attack_time   = 0.002
 hold_time     = 0.000
-release_time  = 0.0085
+release_time  = 0.005
 
 release_coeff = 1 - np.exp(-2.2/(Fs*release_time))
 
@@ -125,11 +125,9 @@ for n in range(1, len(x)):
 
     CPrev = averageLine.read(N_attack)
     averageLine.write(C)
-    
-    
-    #G = (1/N_attack) * np.sum(averageLine.getBuffer())
 
-    G = G + (1/N_attack) * (C - CPrev)
+    G = G + (1/N_attack) * (C - CPrev) #don't seems to work if we have time varying control parameters...
+     #G = C
     g[n] = G
     
     x_lim[n] =  G * delayLine.read(N_attack)
@@ -145,10 +143,10 @@ ax[0].plot(t, np.roll(x_lim, -N_attack),'k', label=r'$x_{lim}[n]$')
 ax[0].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
 
 
-ax[1].plot(t, x_g, label='Gain computer output')
-ax[1].plot(t, c, label=r'$c[n]$')
-ax[1].plot(t, m, label=r'$m[n]$')
-ax[1].plot(t, g,color='crimson', label=r'$g[n]$')
+ax[1].plot(t, x_g, label='Gain computer')
+ax[1].plot(t, m, label=r'$+ Min. filter $')
+ax[1].plot(t, c, label=r'$+ Release $')
+ax[1].plot(t, g,color='crimson', label=r'$+ Average smooth.$')
 
 ax[2].plot(t, x_lim, label=r'$x_{lim}[n]$')
 ax[2].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
