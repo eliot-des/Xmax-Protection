@@ -13,9 +13,9 @@ from audio import normalize
 
 class DelayLine:
 
-    def __init__(self, maxSamplesNbr):
+    def __init__(self, maxSamplesNbr, initValues = 0):
         self.maxSamplesNbr = maxSamplesNbr
-        self.buffer = np.zeros(maxSamplesNbr)
+        self.buffer = np.ones(maxSamplesNbr) * initValues
         self.writeIndex = 0
 
     def write(self, x):
@@ -39,11 +39,12 @@ Fs = 44100
 t = np.arange(0, t_max, 1/Fs)
 n = np.arange(0, len(t))
 
-f = 100/t_step_start
+f = 80/t_step_start
 x = np.sin(2*np.pi*f*t)
 x = x*(step_amp + (1-step_amp)*(n>=t_step_start*Fs)*(n<=t_step_stop*Fs))
-'''
+
 #Test with a dirac
+'''
 x = np.zeros_like(t)
 x[int(t_step_start*Fs)] = 1
 
@@ -73,8 +74,8 @@ thres = 0.4
 
 # Envelope estimation parameters
 attack_time   = 0.002
-hold_time     = 0.000
-release_time  = 0.005
+hold_time     = 0.004
+release_time  = 0.003
 
 release_coeff = 1 - np.exp(-2.2/(Fs*release_time))
 
@@ -93,13 +94,13 @@ g     = np.ones_like(x)
 
 
 gc = 0
-C  = 0
-G = 0
+C  = 1
+G = 1
 
 #circular buffers:
 delayLine = DelayLine(N_attack)
-gainLine = DelayLine(N_attack + N_hold)
-averageLine = DelayLine(N_attack)
+gainLine = DelayLine(N_attack + N_hold, 1)
+averageLine = DelayLine(N_attack, 1)
 
 
 
@@ -127,7 +128,6 @@ for n in range(1, len(x)):
     averageLine.write(C)
 
     G = G + (1/N_attack) * (C - CPrev) #don't seems to work if we have time varying control parameters...
-     #G = C
     g[n] = G
     
     x_lim[n] =  G * delayLine.read(N_attack)
