@@ -8,30 +8,13 @@ fpath = os.path.join(os.getcwd(), 'modules')
 sys.path.append(fpath)
 from dynamic_trackers import dynamic_peak_follower_sbs, gain_factor_smoothing_sbs_bis
 from audio import normalize
+from filters import bilinear2ndOrder
 
 plt.rc('lines', linewidth=2)
 plt.rc('font', size=14)
 plt.rc('axes', linewidth=1.5, labelsize=14)
 plt.rc('legend', fontsize=12)
 
-
-def bilinear2ndOrder(b, a, Fs):
-    bd = np.zeros(3) 
-    bd[0] = b[0]*4*Fs**2 + b[1]*2*Fs + b[2]
-    bd[1] = -2*b[0]*4*Fs**2 + 2*b[2]
-    bd[2] = b[0]*4*Fs**2 - b[1]*2*Fs + b[2]
-
-    ad = np.zeros(3)
-    ad[0] = a[0]*4*Fs**2 + a[1]*2*Fs + a[2]
-    ad[1] = -2*a[0]*4*Fs**2 + 2*a[2]
-    ad[2] = a[0]*4*Fs**2 - a[1]*2*Fs + a[2]
-
-    #normalize coeff
-    ad0 = ad[0]
-    ad = ad/ad0
-    bd = bd/ad0
-
-    return bd, ad
 
 #================================================================================
 #============= Definition of a signal being the input voltage ===================
