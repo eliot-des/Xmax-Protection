@@ -37,12 +37,12 @@ def bilinear2ndOrder(b, a, Fs):
 #============= Definition of a signal being the input voltage ===================
 #================================================================================
 
-signal_name = 'M'   # to further name the .wav export file - M stands for sweep
-Fs, u = read('Audio/ShookOnes_rearranged.wav')
+signal_name = 'M2'   # to further name the .wav export file - M stands for sweep
+Fs, u = read('Audio/Sacrifice2.wav')
 t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
 u = normalize(u[:,0])
 
-#create a sweep/chirp signal
+# create a sweep/chirp signal
 # signal_name = 'S'   # to further name the .wav export file - S stands for sweep
 # Fs = 48000
 # t = np.arange(0, 5, 1/Fs)
@@ -51,11 +51,11 @@ u = normalize(u[:,0])
 A = 16                   # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
-tstart   = 11            # start time in seconds
-duration = 3            # duration time in seconds
+# tstart   = 11            # start time in seconds
+# duration = 3            # duration time in seconds
 
-u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
-t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
+# u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
+# t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 
 #================================================================================
 #==== Importing speaker TS parameters and defining the displacement filter ======
