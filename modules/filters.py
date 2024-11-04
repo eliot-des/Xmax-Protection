@@ -172,3 +172,22 @@ class HighPassFilterTD2:
         self.z2 = self.b[2]*x - self.a[2]*y
 
         return y
+    
+
+def bilinear2ndOrder(b, a, Fs):
+    bd = np.zeros(3) 
+    bd[0] = b[0]*4*Fs**2 + b[1]*2*Fs + b[2]
+    bd[1] = -2*b[0]*4*Fs**2 + 2*b[2]
+    bd[2] = b[0]*4*Fs**2 - b[1]*2*Fs + b[2]
+
+    ad = np.zeros(3)
+    ad[0] = a[0]*4*Fs**2 + a[1]*2*Fs + a[2]
+    ad[1] = -2*a[0]*4*Fs**2 + 2*a[2]
+    ad[2] = a[0]*4*Fs**2 - a[1]*2*Fs + a[2]
+
+    #normalize coeff
+    ad0 = ad[0]
+    ad = ad/ad0
+    bd = bd/ad0
+
+    return bd, ad
