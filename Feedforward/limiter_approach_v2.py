@@ -10,28 +10,11 @@ fpath = os.path.join(os.getcwd(), 'Modules')
 sys.path.append(fpath)
 
 from audio import normalize
-
-def bilinear2ndOrder(b, a, Fs):
-    bd = np.zeros(3) 
-    bd[0] = b[0]*4*Fs**2 + b[1]*2*Fs + b[2]
-    bd[1] = -2*b[0]*4*Fs**2 + 2*b[2]
-    bd[2] = b[0]*4*Fs**2 - b[1]*2*Fs + b[2]
-
-    ad = np.zeros(3)
-    ad[0] = a[0]*4*Fs**2 + a[1]*2*Fs + a[2]
-    ad[1] = -2*a[0]*4*Fs**2 + 2*a[2]
-    ad[2] = a[0]*4*Fs**2 - a[1]*2*Fs + a[2]
-
-    #normalize coeff
-    ad0 = ad[0]
-    ad = ad/ad0
-    bd = bd/ad0
-
-    return bd, ad
+from filters import bilinear2ndOrder
 
 
 #=============================================================
-#Implement a basic hard-clipper.
+#Implement a limiter using a compensation filter based on physical approach of the speaker.
 
 #Check limiter_approach_v1.png to see the signal's flowchart.
 #=============================================================
@@ -64,7 +47,7 @@ loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['woofer1']
+loudspeaker = loudspeakers['full-range1']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
@@ -86,8 +69,8 @@ bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
 thres = Xmax_
 
 # Envelope estimation parameters
-attack_time   = 0.002
-hold_time     = 0.004
+attack_time   = 0.001
+hold_time     = 0.001
 release_time  = 0.015
 
 release_coeff = 1 - np.exp(-2.2/(Fs*release_time))
@@ -100,15 +83,16 @@ N_hold    = int(hold_time * Fs)
 # Arrays to store results
 u_hp    = np.zeros_like(u)
 x       = np.zeros_like(u)
-x_g     = np.ones_like(u)
+x_g     = np.ones_like(u)       #gain computer function
+x_g_bis = np.ones_like(u)  
 c       = np.ones_like(u)
 g       = np.ones_like(u)
 Cms_comp= np.ones_like(u)*Cms
 
-b_comp = a_xu
-a_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[0]])
+# b_comp = a_xu
+# a_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[0]])
 
-b_comp, a_comp = bilinear2ndOrder(b_comp, a_comp, Fs)
+# b_comp, a_comp = bilinear2ndOrder(b_comp, a_comp, Fs)
 
 
 
@@ -143,6 +127,7 @@ for n in range(N_attack+N_hold, len(x)):
 
     # Apply the gain computer function to get the CMS ratio allowing to not exceed Xmax
     x_g[n] = np.minimum(1, thres*Rec/(abs_u*Bl*Cms))
+    x_g_bis[n] = np.minimum(1, thres/np.abs(x[n]))
     
     # Apply the minimum filter to the gain computer output
     c[n] = np.min(x_g[n-(N_attack+N_hold):n+1])
@@ -186,13 +171,16 @@ ax[0].set(ylabel='Amplitude [V]')
 ax[0].set_ylim(-G,G)
 
 ax[1].plot(t, x_g, label='Gain computer output')
+ax[1].plot(t, x_g_bis, label='Gain computer bis output')
 ax[1].plot(t, c, label=r'$c[n]$')
 ax[1].plot(t, g,color='crimson', label=r'$g[n]$')
+ax[1].set_ylim([0, 1])
 
 
 ax[2].plot(t, x, label=r'$x[n]$')
 ax[2].plot(t, np.roll(x_lim, -N_attack),'k--', label=r'$x_{lim}[n-N_{attack}]$')
-ax[2].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
+ax[2].plot(t, thres*np.ones_like(t), 'r--', label='+Threshold')
+ax[2].plot(t, -thres*np.ones_like(t), 'r--', label='-Threshold')
 ax[2].set(xlabel='Time [s]')
 
 ax2twin = ax[2].twinx()
@@ -210,13 +198,13 @@ plt.show()
 #=============================================================
 # write tension signal u and u_hp to a wav file
 
-norm_factor = np.max(np.abs(u))
+# norm_factor = np.max(np.abs(u))
 
-u    = u   /norm_factor
-u_hp = u_hp/norm_factor
+# u    = u   /norm_factor
+# u_hp = u_hp/norm_factor
 
-u   *=32767
-u_hp*=32767
+# u   *=32767
+# u_hp*=32767
 
-write(f'Audio/Limiter/Approach_2/{music}_u.wav', Fs, u.astype(np.int16))
-write(f'Audio/Limiter/Approach_2/{music}_u_hp.wav', Fs, u_hp.astype(np.int16))
+# write(f'Audio/Limiter/Approach_2/{music}_u.wav', Fs, u.astype(np.int16))
+# write(f'Audio/Limiter/Approach_2/{music}_u_hp.wav', Fs, u_hp.astype(np.int16))
