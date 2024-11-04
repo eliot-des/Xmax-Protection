@@ -28,6 +28,55 @@ class DelayLine:
 
     def getBuffer(self):
         return self.buffer
+class MinFilter:
+    # Min filter implemented with a circular buffer and checking the minimum value at each read
+
+    def __init__(self, maxSamplesNbr, maxValue=1):
+        self.maxValue = maxValue
+        self.maxSamplesNbr = maxSamplesNbr
+        self.buffer = np.ones(maxSamplesNbr) * self.maxValue  # Initialize the buffer with the maximum value
+        self.head = 0
+        self.tail = 0
+        self.currentMin = self.maxValue
+        self.windowSize = 0
+        self.currentSize = 0
+        self.needsRecalculation = False
+
+    def setWindowSize(self, windowSize):
+        self.windowSize = windowSize
+    
+    def add(self, x):
+        # Check if we need to recalculate minimum when the window is full
+        if self.currentSize >= self.windowSize:
+            if self.buffer[self.tail] == self.currentMin and self.currentMin < self.maxValue:
+                self.needsRecalculation = True
+            self.tail = (self.tail + 1) % self.maxSamplesNbr
+        else:
+            self.currentSize += 1
+
+        # Write the new value to the head of the buffer
+        self.buffer[self.head] = x
+        self.head = (self.head + 1) % self.maxSamplesNbr
+
+        # Update or recalculate the minimum
+        if x < self.currentMin:
+            self.currentMin = x
+        elif self.needsRecalculation:
+            self.recalculateMin()
+    
+    def recalculateMin(self):
+        # Recalculate minimum across the current window
+        self.currentMin = self.maxValue
+        for i in range(self.currentSize):
+            index = (self.tail + i) % self.maxSamplesNbr
+            if self.buffer[index] < self.currentMin:
+                self.currentMin = self.buffer[index]
+
+        self.needsRecalculation = False  # Reset the flag
+
+    def getMinimum(self):
+        return self.currentMin
+    
 
 
 t_max = 0.1
@@ -39,12 +88,11 @@ Fs = 44100
 t = np.arange(0, t_max, 1/Fs)
 n = np.arange(0, len(t))
 
-f = 80/t_step_start
+f = 10/t_step_start
 x = np.sin(2*np.pi*f*t)
 x = x*(step_amp + (1-step_amp)*(n>=t_step_start*Fs)*(n<=t_step_stop*Fs))
-
-#Test with a dirac
 '''
+#Test with a dirac
 x = np.zeros_like(t)
 x[int(t_step_start*Fs)] = 1
 
@@ -74,8 +122,8 @@ thres = 0.4
 
 # Envelope estimation parameters
 attack_time   = 0.002
-hold_time     = 0.004
-release_time  = 0.003
+hold_time     = 0.000
+release_time  = 0.005
 
 release_coeff = 1 - np.exp(-2.2/(Fs*release_time))
 
@@ -102,7 +150,8 @@ delayLine = DelayLine(N_attack)
 gainLine = DelayLine(N_attack + N_hold, 1)
 averageLine = DelayLine(N_attack, 1)
 
-
+minFilter = MinFilter(N_attack+ N_hold, 1)
+minFilter.setWindowSize(N_attack+ N_hold)
 
 
 
@@ -117,7 +166,10 @@ for n in range(1, len(x)):
     x_g[n] = gC
     gainLine.write(gC)
 
-    minGain = np.min(gainLine.getBuffer())
+    #minGain = np.min(gainLine.getBuffer())
+    minFilter.add(gC)
+
+    minGain = minFilter.currentMin
     m[n] = minGain
 
     
@@ -128,6 +180,8 @@ for n in range(1, len(x)):
     averageLine.write(C)
 
     G = G + (1/N_attack) * (C - CPrev) #don't seems to work if we have time varying control parameters...
+
+     #G = C
     g[n] = G
     
     x_lim[n] =  G * delayLine.read(N_attack)
@@ -145,8 +199,8 @@ ax[0].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
 
 ax[1].plot(t, x_g, label='Gain computer')
 ax[1].plot(t, m, label=r'$+ Min. filter $')
-ax[1].plot(t, c, label=r'$+ Release $')
-ax[1].plot(t, g,color='crimson', label=r'$+ Average smooth.$')
+#ax[1].plot(t, c, label=r'$+ Release $')
+#ax[1].plot(t, g,color='crimson', label=r'$+ Average smooth.$')
 
 ax[2].plot(t, x_lim, label=r'$x_{lim}[n]$')
 ax[2].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
