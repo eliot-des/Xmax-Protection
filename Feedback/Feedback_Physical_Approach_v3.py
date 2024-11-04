@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig 
-from scipy.io.wavfile import read
+from scipy.io.wavfile import read, write
 import os
 import sys
 fpath = os.path.join(os.getcwd(), 'modules')
@@ -37,20 +37,22 @@ def bilinear2ndOrder(b, a, Fs):
 #============= Definition of a signal being the input voltage ===================
 #================================================================================
 
-# Fs, u = read('Audio Tests/Thriller.wav')
-# t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
-# u = normalize(u[:,0])
+signal_name = 'M'   # to further name the .wav export file - M stands for sweep
+Fs, u = read('Audio/ShookOnes_rearranged.wav')
+t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
+u = normalize(u[:,0])
 
 #create a sweep/chirp signal
-Fs = 48000
-t = np.arange(0, 5, 1/Fs)
-u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
+# signal_name = 'S'   # to further name the .wav export file - S stands for sweep
+# Fs = 48000
+# t = np.arange(0, 5, 1/Fs)
+# u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
 
-A = 10                   # gain of the amplifier -> Max tension in volts
+A = 16                   # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
-tstart   = 0            # start time in seconds
-duration = 5            # duration time in seconds
+tstart   = 11            # start time in seconds
+duration = 3            # duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
@@ -70,7 +72,7 @@ loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['full-range2']
+loudspeaker = loudspeakers['full-range1']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
@@ -211,12 +213,12 @@ ax[0].plot(t, x2, linewidth=1, alpha=0.2, label='Displacement (no feedback)')
 ax[0].axhline(y=Xmax, color='red', linestyle='--', label='+Xmax')
 ax[0].axhline(y=-Xmax, color='red', linestyle='--', label='-Xmax')
 ax[0].set_ylabel('Amplitude [mm]')
-ax[0].legend(loc='lower left')
+# ax[0].legend(loc='lower left')
 ax[0].grid()
 
 ax1twin = ax[0].twinx()
 ax1twin.plot(t, Cms_comp*1000, 'k', linewidth=1, label='Cms compensation')
-ax1twin.legend(loc='upper left')
+# ax1twin.legend(loc='upper left')
 ax1twin.set(ylabel='Compliance [mm/N]')
 
 
@@ -232,8 +234,19 @@ ax[1].grid()
 ax1twin = ax[1].twinx()
 ax1twin.plot(t, track_Rms, 'k', linewidth=1, label='Rms compensation')
 ax1twin.axhline(y=Rms, color='m', linestyle='-.', label='Rms speaker')
-ax1twin.legend(loc='upper left')
+# ax1twin.legend(loc='upper left')
 ax1twin.set(ylabel='Rms comp [kg/s]')
 
 # plt.savefig(f'Figures/physical_approach/simulation_{loudspeaker}.pdf')
 plt.show()
+
+
+#================================================================================
+#============================== Writting data ===================================
+#================================================================================
+
+filtered_data = 0.8*u_hp/np.max(np.abs(u_hp))
+# filtered_data*=0.8
+filtered_data = filtered_data*2**15
+
+write(f'Audio/Feedback/Test_{signal_name}_{A}_{loudspeaker}.wav', Fs, filtered_data.astype(np.int16))
