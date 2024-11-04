@@ -2,8 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig 
 from scipy.io.wavfile import read
-from lib import normalize, dynamic_peak_follower2, gain_factor_smoothing_sbs_bis, dynamic_peak_follower_sbs, gain_factor_smoothing_sbs
+# from lib import normalize, dynamic_peak_follower2, gain_factor_smoothing_sbs_bis, dynamic_peak_follower_sbs, gain_factor_smoothing_sbs
+import os
 import sys
+fpath = os.path.join(os.getcwd(), 'modules')
+sys.path.append(fpath)
+from dynamic_trackers import dynamic_peak_follower2, gain_factor_smoothing_sbs_bis, dynamic_peak_follower_sbs, gain_factor_smoothing_sbs
+from audio import normalize
 
 plt.rc('lines', linewidth=2)
 plt.rc('font', size=14)
@@ -14,32 +19,32 @@ plt.rc('legend', fontsize=12)
 #============= Definition of a signal being the input voltage ===================
 #================================================================================
 
-# Fs, u = read('Audio Tests/Thriller.wav')
-# t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
-# u = normalize(u[:,0])
+Fs, u = read('Audio/ShookOnes_rearranged.wav')
+t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
+u = normalize(u[:,0])
 
 #create a sweep/chirp signal
-Fs = 48000
-t = np.arange(0, 5, 1/Fs)
-u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
+# Fs = 48000
+# t = np.arange(0, 5, 1/Fs)
+# u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
 
-A = 10               #gain of the amplifier -> Max tension in volts
-u = A*u             #tension in volts
+A = 4                   #gain of the amplifier -> Max tension in volts
+u = A*u                 #tension in volts
 
-tstart   = 0            #start time in seconds
-duration = 5            #duration time in seconds
+tstart   = 12           #start time in seconds
+duration = 3            #duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 
-# fig, ax = plt.subplots()
-# ax.plot(t, u, label='Signal')
-# ax.set_xlabel('Time [sec]')
-# ax.set_ylabel('Amplitude [u.a]')
-# ax.legend()
-# plt.show()
+fig, ax = plt.subplots()
+ax.plot(t, u, label='Signal')
+ax.set_xlabel('Time [sec]')
+ax.set_ylabel('Amplitude [u.a]')
+ax.legend()
+plt.show()
 
-# sys.exit()
+sys.exit()
 
 
 #================================================================================
