@@ -69,9 +69,9 @@ bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
 thres = Xmax_
 
 # Envelope estimation parameters
-attack_time   = 0.001
-hold_time     = 0.001
-release_time  = 0.015
+attack_time   = 0.005
+hold_time     = 0.005
+release_time  = 0.010
 
 release_coeff = 1 - np.exp(-2.2/(Fs*release_time))
 
@@ -81,18 +81,13 @@ N_hold    = int(hold_time * Fs)
 
 
 # Arrays to store results
-u_hp    = np.zeros_like(u)
-x       = np.zeros_like(u)
+u_hp    = np.zeros_like(u)      #tension supplying the speaker
+x       = np.zeros_like(u)      #displacement
 x_g     = np.ones_like(u)       #gain computer function
 x_g_bis = np.ones_like(u)  
-c       = np.ones_like(u)
-g       = np.ones_like(u)
-Cms_comp= np.ones_like(u)*Cms
-
-# b_comp = a_xu
-# a_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[0]])
-
-# b_comp, a_comp = bilinear2ndOrder(b_comp, a_comp, Fs)
+c       = np.ones_like(u)       #gain computer after the minimum filter output
+g       = np.ones_like(u)       #averaging
+Cms_comp= np.ones_like(u)*Cms   #compensation compliance
 
 
 
@@ -126,8 +121,8 @@ for n in range(N_attack+N_hold, len(x)):
     abs_u = np.abs(u[n])
 
     # Apply the gain computer function to get the CMS ratio allowing to not exceed Xmax
-    x_g[n] = np.minimum(1, thres*Rec/(abs_u*Bl*Cms))
-    x_g_bis[n] = np.minimum(1, thres/np.abs(x[n]))
+    # x_g[n] = np.minimum(1, thres*Rec/(abs_u*Bl*Cms))
+    x_g[n] = np.minimum(1, thres/(np.abs(x[n])))
     
     # Apply the minimum filter to the gain computer output
     c[n] = np.min(x_g[n-(N_attack+N_hold):n+1])
@@ -171,7 +166,7 @@ ax[0].set(ylabel='Amplitude [V]')
 ax[0].set_ylim(-G,G)
 
 ax[1].plot(t, x_g, label='Gain computer output')
-ax[1].plot(t, x_g_bis, label='Gain computer bis output')
+# ax[1].plot(t, x_g_bis, label='Gain computer bis output')
 ax[1].plot(t, c, label=r'$c[n]$')
 ax[1].plot(t, g,color='crimson', label=r'$g[n]$')
 ax[1].set_ylim([0, 1])
@@ -179,8 +174,8 @@ ax[1].set_ylim([0, 1])
 
 ax[2].plot(t, x, label=r'$x[n]$')
 ax[2].plot(t, np.roll(x_lim, -N_attack),'k--', label=r'$x_{lim}[n-N_{attack}]$')
-ax[2].plot(t, thres*np.ones_like(t), 'r--', label='+Threshold')
-ax[2].plot(t, -thres*np.ones_like(t), 'r--', label='-Threshold')
+ax[2].plot(t, thres*np.ones_like(t), 'r--', label='+/-Threshold')
+ax[2].plot(t, -thres*np.ones_like(t), 'r--')
 ax[2].set(xlabel='Time [s]')
 
 ax2twin = ax[2].twinx()
