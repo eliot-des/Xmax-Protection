@@ -25,11 +25,11 @@ music = 'Thriller'
 Fs, u = read(f'Audio/{music}.wav') 
 u = u[:,0]          #select only one channel
 u = normalize(u)    #normalize the signal to 1
-G = 4               #gain of the amplifier -> Max tension in volts
+G = 10               #gain of the amplifier -> Max tension in volts
 u*=G             #tension in volts
 
 t = np.arange(0, len(u)/Fs, 1/Fs)
-tstart   = 5            #start time in seconds
+tstart   = 0            #start time in seconds
 duration = 4              #duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
@@ -147,7 +147,7 @@ for n in range(N_attack+N_hold, len(x)):
     else:
         g[n] = c[n]  # No filtering for the initial samples
     
-    dBgain[n] = 40*np.log10(g[n])
+    dBgain[n] = 20*np.log10(g[n])
 
     #compute the digital coefficients of LS filter
     filter = EqualizerFilter("LS", fc=200, Q=1/np.sqrt(2), dBgain=dBgain[n], fs=Fs)
