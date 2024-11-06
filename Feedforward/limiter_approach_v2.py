@@ -24,12 +24,12 @@ music = 'Thriller'
 Fs, u = read(f'Audio/{music}.wav') 
 u = u[:,0]          #select only one channel
 u = normalize(u)    #normalize the signal to 1
-G = 10               #gain of the amplifier -> Max tension in volts
-u*=G             #tension in volts
+G = 30              #gain of the amplifier -> Max tension in volts
+u*=G                #tension in volts
 
 t = np.arange(0, len(u)/Fs, 1/Fs)
-tstart   = 0            #start time in seconds
-duration = 4              #duration time in seconds
+tstart   = 0        #start time in seconds
+duration = 4        #duration time in seconds
 
 u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
 t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
@@ -60,7 +60,8 @@ with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
 b_xu = np.array([0, 0, Bl/Rec])         
 a_xu = np.array([Mms, Rms+Bl**2/Rec, 1/Cms])
 
-bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
+# bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
+bd_xu, ad_xu = bilinear2ndOrder(b_xu, a_xu, Fs)
 
 
 #=============================================================
@@ -85,9 +86,11 @@ u_hp    = np.zeros_like(u)      #tension supplying the speaker
 x       = np.zeros_like(u)      #displacement
 x_g     = np.ones_like(u)       #gain computer function
 x_g_bis = np.ones_like(u)  
-c       = np.ones_like(u)       #gain computer after the minimum filter output
+c       = np.ones_like(u)       #minimum filter and exp release for the computer gain
 g       = np.ones_like(u)       #averaging
 Cms_comp= np.ones_like(u)*Cms   #compensation compliance
+gain_DC = np.zeros_like(u)      #gain @0Hz from compensation filter
+gain_f  = np.zeros_like(u)      #broadband max gain of compensation filter
 
 
 
@@ -97,6 +100,8 @@ b_comp = a_xu
 bd_comp, ad_comp = bilinear2ndOrder(b_comp, a_comp, Fs)
 
 
+f = np.geomspace(10, 3000, 100)
+Q0 = 1/np.sqrt(2)                        # neutral quality factor
 
 
 d_xu = np.zeros(4)   #memory for DF1 X/U filter 
@@ -138,12 +143,25 @@ for n in range(N_attack+N_hold, len(x)):
     
     Cms_comp[n] = Cms*g[n]
 
-    #we then compute the new compensation coeff filter (zeros are unchanged)...
-    a_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[n]])
+    # Compare quality factor
+    Q0_c = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms_comp[n])     # Quality factor for the compensation filter - c stands for compensation
 
+    if Q0_c > Q0:
+        Rms_comp = 1/Q0*np.sqrt(Mms/Cms_comp[n]) - (Bl**2/Rec)
+    else:
+        Rms_comp = Rms
+
+    #we then compute the new compensation coeff filter (zeros are unchanged)...
+    a_comp = np.array([Mms, Rms_comp+Bl**2/Rec, 1/Cms_comp[n]])
 
     #compute the digital coefficients
     bd_comp, ad_comp = bilinear2ndOrder(b_comp, a_comp, Fs)
+
+    gain_DC[n] = 20*np.log10(np.sum(bd_comp)/np.sum(ad_comp))  #gives the gain in dB @0Hz
+
+    # Search the max gain of the compensation filter
+    _, H = sig.freqz(bd_comp, ad_comp, worN=f, fs=Fs)
+    gain_f[n] = np.max(np.abs(H))
 
 
     #Apply the compensation filter to the delayed input tension signal
@@ -165,11 +183,13 @@ ax[0].plot(t, np.roll(u_hp, -N_attack), 'k--', label=r'$u_{hp}[n-N_{attack}]$')
 ax[0].set(ylabel='Amplitude [V]')
 ax[0].set_ylim(-G,G)
 
-ax[1].plot(t, x_g, label='Gain computer output')
+ax[1].plot(t, 20*np.log10(x_g), label='Gain computer output')
 # ax[1].plot(t, x_g_bis, label='Gain computer bis output')
-ax[1].plot(t, c, label=r'$c[n]$')
-ax[1].plot(t, g,color='crimson', label=r'$g[n]$')
-ax[1].set_ylim([0, 1])
+ax[1].plot(t, 20*np.log10(c), label=r'$c[n]$')
+ax[1].plot(t, 20*np.log10(g), color='crimson', label=r'$g[n]$')
+ax[1].plot(t, gain_DC ,'-.k', label=r'$gain_{DC}[n]$')
+ax[1].plot(t, 20*np.log10(gain_f) ,'m', label=r'$max gain_{broadband}[n]$')
+# ax[1].set_ylim([0, 1])
 
 
 ax[2].plot(t, x, label=r'$x[n]$')
@@ -185,7 +205,7 @@ ax2twin.legend(loc='upper right')
 
 for i in range(3):
     ax[i].set(ylabel='Amplitude')
-    ax[i].legend()
+    ax[i].legend(loc='lower right')
     ax[i].grid()
     ax[i].set_xlim([t[0], t[-1]])
 plt.show()
