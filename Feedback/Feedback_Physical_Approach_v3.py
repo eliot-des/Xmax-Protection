@@ -20,8 +20,8 @@ plt.rc('legend', fontsize=12)
 #============= Definition of a signal being the input voltage ===================
 #================================================================================
 
-signal_name = 'M2'   # to further name the .wav export file - M stands for sweep
-Fs, u = read('Audio/Sacrifice2.wav')
+signal_name = 'Sacrifice2'   # to further name the .wav export file - M stands for sweep
+Fs, u = read('Audio/'+signal_name+'.wav')
 t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
 u = normalize(u[:,0])
 
@@ -119,7 +119,7 @@ x        = np.zeros(len(u))    # displacement in mm
 x_lim    = np.zeros(len(u))    # limited displacement in mm
 x_peak   = np.zeros(len(u))    # enveloppe estimator in mm
 
-attack_peak    = 0.00005       # Attack time in seconds
+attack_peak    = 0.002         # Attack time in seconds
 release_peak   = 0.001         # Release time in seconds
 attack_smooth  = 0.01          # Attack time for the gain smoothing function
 release_smooth = 0.5           # Release time for the gain smoothing function
@@ -228,8 +228,14 @@ plt.show()
 #============================== Writting data ===================================
 #================================================================================
 
-filtered_data = 0.8*u_hp/np.max(np.abs(u_hp))
-# filtered_data*=0.8
-filtered_data = filtered_data*2**15
+norm_factor = np.max(np.abs(u))
+# print(norm_factor)
 
-write(f'Audio/Feedback/Test_{signal_name}_{A}_{loudspeaker}.wav', Fs, filtered_data.astype(np.int16))
+u=u/(norm_factor*1.2)
+u_hp=u_hp/(norm_factor*1.2)
+
+u*=2**15
+u_hp*=2**15
+
+write(f'Audio/Feedback/{signal_name}_mono.wav', Fs, u.astype(np.int16))
+write(f'Audio/Feedback/{signal_name}_{A}_{loudspeaker}.wav', Fs, u_hp.astype(np.int16))
