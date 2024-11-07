@@ -20,7 +20,7 @@ plt.rc('legend', fontsize=12)
 #============= Definition of a signal being the input voltage ===================
 #================================================================================
 
-signal_name = 'Sacrifice2'   # to further name the .wav export file - M stands for sweep
+signal_name = 'ShookOnes'
 Fs, u = read('Audio/'+signal_name+'.wav')
 t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
 u = normalize(u[:,0])
@@ -31,7 +31,7 @@ u = normalize(u[:,0])
 # t = np.arange(0, 5, 1/Fs)
 # u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
 
-A = 16                   # gain of the amplifier -> Max tension in volts
+A = 4                   # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
 # tstart   = 11            # start time in seconds
@@ -96,6 +96,8 @@ Cms_comp = np.zeros(len(u))         # compensation compliance to be adjusted sam
 Cms_comp[0] = Cms                   # initial compliance value is the one of the speaker
 Cms_min = 0.9*R*Cms                 # minimum compensation compliance with a margin factor
 
+Rms_comp = Rms*np.ones_like(u)      # compensation loss to be adjusted sample by sample
+
 
 B_comp = A_LF
 A_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[0]])
@@ -121,14 +123,13 @@ x_peak   = np.zeros(len(u))    # enveloppe estimator in mm
 
 attack_peak    = 0.002         # Attack time in seconds
 release_peak   = 0.001         # Release time in seconds
-attack_smooth  = 0.01          # Attack time for the gain smoothing function
+attack_smooth  = 0.02          # Attack time for the gain smoothing function
 release_smooth = 0.5           # Release time for the gain smoothing function
 
 
 d_DFI   = np.zeros(4)          # memory buffer for Direct Form I
 d_TDFII = np.zeros(2)          # memory buffer for Transposed Direct Form I
 u_hp    = np.zeros_like(u)
-track_Rms = Rms*np.ones_like(u_hp)
 
 for i in range(1, len(u_hp)):
     
@@ -162,17 +163,13 @@ for i in range(1, len(u_hp)):
     Q0_c = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms_comp[i])     # Quality factor for the compensation filter - c stands for compensation
 
     if Q0_c > Q0:
-        Rms_comp = 1/Q0*np.sqrt(Mms/Cms_comp[i]) - (Bl**2/Rec)
+        Rms_comp[i] = 1/Q0*np.sqrt(Mms/Cms_comp[i]) - (Bl**2/Rec)
     else:
-        Rms_comp = Rms
-
-    # Rms_comp = Rms
-    
-    track_Rms[i] = Rms_comp
+        Rms_comp[i] = Rms
     
 
     #we then compute the new compensation coeff filter (zeros are unchanged)...
-    A_comp = np.array([Mms, Rms_comp+Bl**2/Rec, 1/Cms_comp[i]])
+    A_comp = np.array([Mms, Rms_comp[i]+Bl**2/Rec, 1/Cms_comp[i]])
 
     #compute the digital coefficients
     b_comp, a_comp = bilinear2ndOrder(B_comp, A_comp, Fs)
@@ -215,7 +212,7 @@ ax[1].set_xlabel('Time [sec]')
 ax[1].grid()
 
 ax1twin = ax[1].twinx()
-ax1twin.plot(t, track_Rms, 'k', linewidth=1, label='Rms compensation')
+ax1twin.plot(t, Rms_comp, 'k', linewidth=1, label='Rms compensation')
 ax1twin.axhline(y=Rms, color='m', linestyle='-.', label='Rms speaker')
 # ax1twin.legend(loc='upper left')
 ax1twin.set(ylabel='Rms comp [kg/s]')
@@ -228,14 +225,19 @@ plt.show()
 #============================== Writting data ===================================
 #================================================================================
 
-norm_factor = np.max(np.abs(u))
-# print(norm_factor)
+Max_Uin = np.max(np.abs(u))
+Max_Uhp = np.max(np.abs(u_hp))
 
-u=u/(norm_factor*1.2)
-u_hp=u_hp/(norm_factor*1.2)
+norm_factor = np.maximum(Max_Uin, Max_Uhp)
+print('Normalization factor:', np.round(norm_factor, 1))
+print('Max u_in:', round(Max_Uin, 1))
+print('Max u_hp:', round(Max_Uhp, 1))
+
+u=u/(norm_factor)
+u_hp=u_hp/(norm_factor)
 
 u*=2**15
 u_hp*=2**15
 
-write(f'Audio/Feedback/{signal_name}_mono.wav', Fs, u.astype(np.int16))
-write(f'Audio/Feedback/{signal_name}_{A}_{loudspeaker}.wav', Fs, u_hp.astype(np.int16))
+write(f'Audio/Feedback/{signal_name}/G{A}_mono.wav', Fs, u.astype(np.int16))
+write(f'Audio/Feedback/{signal_name}/G{A}_Att{np.int16(attack_smooth*1000)}ms_{loudspeaker}.wav', Fs, u_hp.astype(np.int16))
