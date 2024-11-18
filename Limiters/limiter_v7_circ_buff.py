@@ -10,6 +10,13 @@ sys.path.append(fpath)
 
 from audio import normalize
 
+#set tex font for plots
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman"],
+    "font.size": 18,
+    "legend.fontsize": 16})
 
 class DelayLine:
 
@@ -39,17 +46,18 @@ Fs = 44100
 t = np.arange(0, t_max, 1/Fs)
 n = np.arange(0, len(t))
 
-f = 80/t_step_start
+f = 20/t_step_start
 x = np.sin(2*np.pi*f*t)
 x = x*(step_amp + (1-step_amp)*(n>=t_step_start*Fs)*(n<=t_step_stop*Fs))
 
 #Test with a dirac
+
+t_dirac = 0.01
+
+x[0:int(t_step_start*Fs/2)] = 0
+x[int(t_dirac*Fs)] = 1
+
 '''
-x = np.zeros_like(t)
-x[int(t_step_start*Fs)] = 1
-
-x[int(t_step_start*1.3*Fs)] = 1
-
 #=============================================================
 
 music = 'Sacrifice1'
@@ -74,8 +82,8 @@ thres = 0.4
 
 # Envelope estimation parameters
 attack_time   = 0.002
-hold_time     = 0.004
-release_time  = 0.003
+hold_time     = 0#0.004
+release_time  = 0.003#0.003
 
 release_coeff = 1 - np.exp(-2.2/(Fs*release_time))
 
@@ -101,10 +109,6 @@ G = 1
 delayLine = DelayLine(N_attack)
 gainLine = DelayLine(N_attack + N_hold, 1)
 averageLine = DelayLine(N_attack, 1)
-
-
-
-
 
 #=============================================================
 # Implement the limiter in a for loop
@@ -134,40 +138,42 @@ for n in range(1, len(x)):
 
 #=============================================================
 
-fig, ax = plt.subplots(3, 1, sharex=True)
+fig, ax = plt.subplots(3, 1, figsize=(12,8), sharex=True, layout='constrained')
 
 #fig.suptitle(f'Sinusoidal signal of frequency {f:.2f} Hz with amplitude modulation.')
 
 ax[0].plot(t, x, label=r'$x[n]$')
-ax[0].plot(t, np.roll(x_lim, -N_attack),'k', label=r'$x_{lim}[n]$')
-ax[0].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
-
+ax[0].plot(t, np.roll(x_lim, -N_attack),'k', label=r'$x_{lim}[n+N_{attack}]$')
+ax[0].plot(t, thres*np.ones_like(t), 'r--')
+ax[0].plot(t, -thres*np.ones_like(t), 'r--')
+ax[0].legend(loc='lower left')
 
 ax[1].plot(t, x_g, label='Gain computer')
-ax[1].plot(t, m, label=r'$+ Min. filter $')
-ax[1].plot(t, c, label=r'$+ Release $')
-ax[1].plot(t, g,color='crimson', label=r'$+ Average smooth.$')
+ax[1].plot(t, m, '--',label=r'+ Min. filter')
+ax[1].plot(t, c, ':', label=r'+ Release')
+ax[1].plot(t, g, color='crimson', label=r'+ Average smooth.')
+ax[1].legend(loc='center right')
 
-ax[2].plot(t, x_lim, label=r'$x_{lim}[n]$')
-ax[2].plot(t, thres*np.ones_like(t), 'r--', label='Threshold')
+ax[2].plot(t, x_lim, 'k', label=r'$x_{lim}[n]$')
+ax[2].plot(t, thres*np.ones_like(t), 'r--')
+ax[2].plot(t, -thres*np.ones_like(t), 'r--')
 ax[2].set(xlabel='Time [s]')
+ax[2].legend(loc='lower right')
 
 ax2twin = ax[2].twinx()
-ax2twin.plot(t, g, 'g',alpha=0.2, label='Gain function')
+ax2twin.plot(t, g, color='crimson',alpha=0.5, label='Gain function')
 ax2twin.set(ylabel='Gain')
 ax2twin.legend(loc='upper right')
 
 for i in range(3):
-    ax[i].set(ylabel='Amplitude')
-    ax[i].legend()
+    ax[i].set(ylabel='Amplitude [mm]')
     ax[i].grid()
     ax[i].set_xlim([0, t[-1]])
 
 
-
 plt.show()
 
-
+fig.savefig("Limiter_noHold.pdf", format="pdf", transparent=True)
 
 #=============================================================
 #Export the output signal without normalizing it

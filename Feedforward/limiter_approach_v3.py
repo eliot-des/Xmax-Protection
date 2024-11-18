@@ -45,7 +45,7 @@ u = G*(step_amp + (1-step_amp)*(n>=t_step_start*Fs)*(n<=t_step_stop*Fs))
 '''
 #=============================================================
 
-Xmax = 1.5          #in mm
+Xmax = 1          #in mm
 Xmax_= Xmax*1e-3    #in m
 
 # Thiele-small parameters

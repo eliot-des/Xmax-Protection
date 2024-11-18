@@ -1,8 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.signal as sig
-from scipy.io.wavfile import read, write
-
 import os
 import sys
 # insert root directory into python module search path
@@ -14,9 +9,8 @@ from filters import bilinear2ndOrder, EqualizerFilter
 
 
 #=============================================================
-#Implement a limiter using a LOW-SHELF filter.
-
-#Check limiter_approach_v1.png to see the signal's flowchart.
+#Implementation of an hybrid feedback/feedforward lowshelf filter
+# to limit displacement of a loudspeaker.
 #=============================================================
 #=============================================================
 
@@ -25,7 +19,7 @@ music = 'ShookOnes'
 Fs, u = read(f'Audio/{music}.wav') 
 u = u[:,0]          #select only one channel
 u = normalize(u)    #normalize the signal to 1
-G = 10               #gain of the amplifier -> Max tension in volts
+G = 1000               #gain of the amplifier -> Max tension in volts
 u*=G             #tension in volts
 
 t = np.arange(0, len(u)/Fs, 1/Fs)
@@ -68,19 +62,6 @@ bd_xu, ad_xu = sig.bilinear(b_xu, a_xu, fs=Fs)
 
 filter = EqualizerFilter("LS", fc=fs, Q=1/np.sqrt(2), dBgain=-6, fs=Fs)
 
-# f = np.geomspace(1, Fs/2, 1000)
-# w   = 2*np.pi*f
-
-# _, H = sig.freqz(filter.b, filter.a, worN=f, fs=Fs)
-
-# fig, ax = plt.subplots()
-# ax.semilogx(f, 20*np.log10(np.abs(H)), 'b', label='Low-Shelf')
-# ax.set_xlabel('Frequency  [Hz]')
-# ax.set_ylabel('Gain [dB]')
-# ax.grid(which='both')
-# ax.legend(loc='lower right')
-# plt.show()
-# sys.exit()
 
 #=============================================================
 
@@ -100,7 +81,8 @@ N_hold    = int(hold_time * Fs)
 
 
 # Arrays to store results
-u_hp    = np.zeros_like(u)      #tension supplying the speaker
+u_hp_forward = np.zeros_like(u)      #tension supplying to the speaker throught the feedforward path
+u_hp_feedback= np.zeros_like(u)      #tension supplying to the speaker obtained from the feedback path
 x       = np.zeros_like(u)      #displacement
 x_g     = np.ones_like(u)       #gain computer function
 x_g_bis = np.ones_like(u)  
@@ -113,26 +95,30 @@ dBgain  = np.ones_like(u)       #LS filter gain
 d_xu = np.zeros(4)   #memory for DF1 X/U filter 
 d_TDFII = np.zeros(2) #memory for TDF2 U/X filter
 #=============================================================
-# Implement the limiter in a for loop
-'''
-x = sig.lfilter(bd_xu, ad_xu, u)    #displacement in m
-x*= 1e3                             #displacement in mm
-'''
 for n in range(N_attack+N_hold, len(x)):
+
+    #compute the digital coefficients of LS filter
+    filter = EqualizerFilter("LS", fc=200, Q=1/np.sqrt(2), dBgain=dBgain[n], fs=Fs)
+
+    #Apply the compensation filter to the delayed input tension signal
+    u_hp_feedback[n] = filter.b[0]*u[n-N_attack] + d_TDFII[0]
+
+    d_TDFII[0] = filter.b[1]*u[n-N_attack] - filter.a[1]*u_hp_feedback[n] + d_TDFII[1]
+    d_TDFII[1] = filter.b[2]*u[n-N_attack] - filter.a[2]*u_hp_feedback[n]
+
+
     #filter the tension signal to get the displacement signal
-    x[n] = bd_xu[0]*u[n-1] + bd_xu[1]*d_xu[0] + bd_xu[2]*d_xu[1] - ad_xu[1]*d_xu[2] - ad_xu[2]*d_xu[3]
+    x[n] = bd_xu[0]*u_hp_feedback[n-1] + bd_xu[1]*d_xu[0] + bd_xu[2]*d_xu[1] - ad_xu[1]*d_xu[2] - ad_xu[2]*d_xu[3]
 
     d_xu[1] = d_xu[0]
-    d_xu[0] = u[n-1]
+    d_xu[0] = u_hp_feedback[n-1]
     d_xu[3] = d_xu[2]
     d_xu[2] = x[n]
     
     #x[n]*=1e3 #convert to mm
     # Calculate the absolute value of the input signal
-    abs_u = np.abs(u[n])
 
     # Apply the gain computer function to get the CMS ratio allowing to not exceed Xmax
-    # x_g[n] = np.minimum(1, thres*Rec/(abs_u*Bl*Cms))
     x_g[n] = np.minimum(1, thres/(np.abs(x[n])))
     
     # Apply the minimum filter to the gain computer output
@@ -149,14 +135,7 @@ for n in range(N_attack+N_hold, len(x)):
     
     dBgain[n] = 20*np.log10(g[n])
 
-    #compute the digital coefficients of LS filter
-    filter = EqualizerFilter("LS", fc=200, Q=1/np.sqrt(2), dBgain=dBgain[n], fs=Fs)
-
-    #Apply the compensation filter to the delayed input tension signal
-    u_hp[n] = filter.b[0]*u[n-N_attack] + d_TDFII[0]
-
-    d_TDFII[0] = filter.b[1]*u[n-N_attack] - filter.a[1]*u_hp[n] + d_TDFII[1]
-    d_TDFII[1] = filter.b[2]*u[n-N_attack] - filter.a[2]*u_hp[n]
+    
 
 
 
@@ -193,7 +172,7 @@ for i in range(3):
     ax[i].set_xlim([t[0], t[-1]])
 plt.show()
 
-
+'''
 norm_factor = np.max(np.abs(u))
 
 u=u/norm_factor
@@ -202,5 +181,6 @@ u_hp=u_hp/norm_factor
 u*=32767
 u_hp*=32767
 
-write(f'Audio/Limiter/Approach_2/{music}_u.wav', Fs, u.astype(np.int16))
-write(f'Audio/Limiter/Approach_2/{music}_u_hp.wav', Fs, u_hp.astype(np.int16))
+write(f'Audio/FeedBack/Approach_LowShelf/{music}_u.wav', Fs, u.astype(np.int16))
+write(f'Audio/FeedBack/Approach_LowShelf/{music}_u_hp.wav', Fs, u_hp.astype(np.int16))
+'''
