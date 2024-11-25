@@ -11,7 +11,8 @@ loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'woofer1': 'Peerless_HDSP830860',
                 'woofer2': 'Dayton_DCS165-4',
                 'woofer3': 'Dayton_RS150-4',
-                'subwoofer1': 'B&C_15FW76-4'}
+                'subwoofer1': 'B&C_15FW76-4',
+                'HPtest': 'HPresonant_test'}
 
 loudspeaker = loudspeakers['full-range2']
 
@@ -19,6 +20,11 @@ with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
     for line in lines:
         exec(line)
+
+Q0_s = 1/(Rms+Bl**2/Rec)*np.sqrt(Mms/Cms)
+w0 = 1/np.sqrt(Mms*Cms)
+print(f'Speaker resonance freq. {np.round(w0/(2*np.pi),2)} Hz.')
+print(f'Theoritical freq. of max X/U {np.round(w0/(2*np.pi)*np.sqrt(1-1/(2*Q0_s**2)),2)} Hz')
 
 # State-space model
 # Create the Matrices A, B and vectors x, xdot
@@ -129,6 +135,8 @@ ax.set_xlabel('Frequency [Hz]')
 ax.set_ylabel('|X/U| [mm/V]')
 ax.grid(which='both')
 ax.legend(loc='upper right')
+
+plt.show()
 
 
 
