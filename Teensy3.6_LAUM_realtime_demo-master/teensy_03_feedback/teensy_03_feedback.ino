@@ -60,13 +60,13 @@ volatile float b_0_comp = a_0;
 volatile float b_1_comp = a_1;
 volatile float b_2_comp = a_2;
 
-//Coefficients are normalized with a_0
-b_0 /= a_0;
-b_1 /= a_0;
-b_2 /= a_0;
-a_1 /= a_0;
-a_2 /= a_0;
-a_0 = 1.0f;
+// //Coefficients are normalized with a_0 -> not working like that, need to be in the 
+// b_0 = b_0/a_0;
+// b_1 = b_0/a_0;
+// b_2 = b_0/a_0;
+// a_1 = b_0/a_0;
+// a_2 = b_0/a_0;
+// a_0 = 1.0f;
 
 // DFI buffer (useless?)
 // volatile float d0_hp = 0, d1_hp = 0, d2_hp = 0, d3_hp = 0;
@@ -98,13 +98,13 @@ volatile float a_0_comp = A_0*4*pow(sampleRateHz,2) + A_1_comp*2*sampleRateHz + 
 volatile float a_1_comp = -2*A_0*4*pow(sampleRateHz,2) + 2*A_2_comp;
 volatile float a_2_comp = A_0*4*pow(sampleRateHz,2) - A_1_comp*2*sampleRateHz + A_2_comp;
 
-//Coefficients are normalized with a_0_comp
-b_0_comp /= a_0_comp;
-b_1_comp /= a_0_comp;
-b_2_comp /= a_0_comp;
-a_1_comp /= a_0_comp;
-a_2_comp /= a_0_comp;
-a_0_comp = 1.0f;
+// //Coefficients are normalized with a_0_comp
+// b_0_comp /= a_0_comp;
+// b_1_comp /= a_0_comp;
+// b_2_comp /= a_0_comp;
+// a_1_comp /= a_0_comp;
+// a_2_comp /= a_0_comp;
+// a_0_comp = 1.0f;
 
 // TDFII buffer (compensation filter)
 volatile float d0_comp = 0, d1_comp = 0;
@@ -193,6 +193,22 @@ ADC *adc = new ADC(); // adc object
 
 void setup(void)
 {
+  // Normalize coefficients
+  b_0 = b_0/a_0;
+  b_1 = b_1/a_0;
+  b_2 = b_2/a_0;
+  a_1 = a_1/a_0;
+  a_2 = a_2/a_0;
+  a_0 = 1.0f;
+
+  //Coefficients are normalized with a_0_comp
+  b_0_comp /= a_0_comp;
+  b_1_comp /= a_0_comp;
+  b_2_comp /= a_0_comp;
+  a_1_comp /= a_0_comp;
+  a_2_comp /= a_0_comp;
+  a_0_comp = 1.0f;
+
   // Declare needed pins as inputs or outputs
   pinMode(readPin_In1, INPUT);
   pinMode(readPin_In4, INPUT);

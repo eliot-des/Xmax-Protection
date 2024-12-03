@@ -107,7 +107,7 @@ const int LDAC = 10;
 const int DIO = 2;
 
 const float conversionConstADC = VrefADC / ((1 << resolutionADC) - 1);
-const float conversionConstDAC = ((1 << resolutionDAC) - 1) / (2.0 * DAC);
+const float conversionConstDAC = ((1 << resolutionDAC) - 1) / (2.0 * VrefDAC);
 const float conversionConstDACT = ((1 << resolutionDACT) - 1) / VrefDACT;
 const int ADCAverages = 0;
 
@@ -139,7 +139,7 @@ ADC *adc = new ADC(); // adc object
 
 
 
-setup(void) {
+void setup(void) {
     // Declare needed pins as inputs or outputs
     pinMode(readPin_In1, INPUT);
     pinMode(readPin_In4, INPUT);
@@ -239,12 +239,12 @@ setup(void) {
     */
 
     if (itsFirst) {
-    // First displacement sample is calculated with the input signal (input1)
-    x_est = lsModel_p.x_predictor(b_0, b_1, b_2, a_1, a_2, input1, Gain);
-    itsFirst = false;
+      // First displacement sample is calculated with the input signal (input1)
+      x_est = lsModel_p.x_predictor(b_0, b_1, b_2, a_1, a_2, input1, Gain);
+      itsFirst = false;
     } else {
-    // Other displacement samples are calculated with the filtered signal (out)
-    x_est = lsModel_p.x_predictor(b_0, b_1, b_2, a_1, a_2, out, Gain);
+      // Other displacement samples are calculated with the filtered signal (out)
+      x_est = lsModel_p.x_predictor(b_0, b_1, b_2, a_1, a_2, out, Gain);
     }
 
     // Estimation of the not corrected displacement
@@ -262,17 +262,17 @@ setup(void) {
     valDACT2 = ((fc / 200 + VrefDACT * 0.5) * conversionConstDACT);
 
     if (itsOn) {
-        // Activate protection
+      // Activate protection
 
-        // To output estimated displacement according to the output
-        valDACT = ((x_est * 500 + VrefDACT * 0.5) * conversionConstDACT);
-        val4DACOut = out;
+      // To output estimated displacement according to the output
+      valDACT = ((x_est * 500 + VrefDACT * 0.5) * conversionConstDACT);
+      val4DACOut = out;
     } else {
-        // Bypass protection
+      // Bypass protection
 
-        // To output the estimated displacement without protection
-        valDACT = ((x_est_nc * 500 + VrefDACT * 0.5) * conversionConstDACT);
-        val4DACOut = input1;
+      // To output the estimated displacement without protection
+      valDACT = ((x_est_nc * 500 + VrefDACT * 0.5) * conversionConstDACT);
+      val4DACOut = input1;
     }
 
     valDAC = (uint16_t)((val4DACOut + VrefDAC) * conversionConstDAC);
@@ -327,16 +327,16 @@ void loop(void) {
             }
         
             incomignByte = Serial.read();
-            if ((char)incomignByte == ’p’ && (!modAttack && !modRelease)) {
+            if ((char)incomignByte == 'p' && (!modAttack && !modRelease)) {
                 itsOn = true;
                 Serial.println("Protection on");
-            } else if ((char)incomignByte == ’n’ && (!modAttack && !modRelease)) {
+            } else if ((char)incomignByte == 'n' && (!modAttack && !modRelease)) {
                 itsOn = false;
                 Serial.println("Protection off");
-            } else if ((char)incomignByte == ’r’ && !modRelease) {
+            } else if ((char)incomignByte == 'r' && !modRelease) {
                 modRelease = true;
                 Serial.println("Type the new release time in seconds");
-            } else if ((char)incomignByte == ’a’ && !modAttack) {
+            } else if ((char)incomignByte == 'a' && !modAttack) {
                 modAttack = true;
                 Serial.println("Type the new attack time in seconds");
             }
