@@ -8,21 +8,6 @@ LS_Model lsModel_p;
 LS_Model lsModel_np;
 
 
-
-// ---------------------------------------------------
-// Loudspeaker
-// ---------------------------------------------------
-// #Parameters - Basic Linear Model
-// At low frequencies Le is approximately 0
-
-// Previous parameters
-// const float Mms = 8.897e-3; //#[Kg]
-// const float Rms = 1.75; //#[N.s/m]
-// const float Kms = 1.73 * 1000; //#[N/m]
-// const float Bl = 5.97; //#[N/A]
-// const float Re = 5.72; //#[ohm]
-// const float Le = 0.29e-3; // [H]
-
 // Peerless Loudspeaker
 const float Mms = 9.257e-3; //#[Kg]
 const float Rms = 1.866; //#[N.s/m]
@@ -30,16 +15,8 @@ const float Kms = 1800; //#[N/m]
 const float Bl = 5.816; //#[N/A]
 const float Re = 6.76; //#[ohm]
 
-// Audax Loudspeaker
-// const float Mms = 20.4e-3; //#[Kg]
-// const float Rms = 1.379; //#[N.s/m]
-// const float Kms = 520; //#[N/m]
-// const float Bl = 9.2; //#[N/A]
-// const float Re = 6.06; //#[ohm]
 
-// Amplifier + Teensy board Gain
 float Gain = 8;
-// Maximum displacement definition (Xmax)
 float Xmax = 0.5e-3;
 // Estimated displacement with protection
 volatile float x_est;
@@ -201,7 +178,7 @@ void setup(void) {
 }
 
 
- void Operations(void) {
+void Operations(void) {
     /**
     * SPI output is done first.
     * This ensure the DAC output timing is synchronised with the ADC via the PDB.
@@ -238,7 +215,7 @@ void setup(void) {
     * Preparing value for DAC Output - SPI
     */
 
-    if (itsFirst) {
+    if (itsFirst) { 
       // First displacement sample is calculated with the input signal (input1)
       x_est = lsModel_p.x_predictor(b_0, b_1, b_2, a_1, a_2, input1, Gain);
       itsFirst = false;
@@ -281,8 +258,6 @@ void setup(void) {
     * DAC Output - Teensy 12 bit
     */
     // valDACT = ((val4DACOut + VrefDACT*0.5)*conversionConstDACT);
-
-
     analogWrite(outPin_Aux1, valDACT);
     analogWrite(outPin_Aux2, valDACT2);
 }
@@ -292,55 +267,6 @@ void loop(void) {
         Operations();
         VALADC0Ready = false;
         VALADC1Ready = false;
-
-        /////////////////////////////////////////////////////////////
-        // For controlling parameters through serial communication //
-        /////////////////////////////////////////////////////////////
-
-        // Send serial monitor messages to modify some parameters:
-        // p: To activate Xmax protection
-        // n: To desactivate protection
-        // a: To modify attack time
-        // After sending a, send the attack value in seconds
-        // r: To modigy release time
-        // After sending r, send the release value in seconds
-
-        if (Serial.available() > 0) {
-            if (modRelease) {
-                float val = Serial.readString(4).toFloat();
-                if (val != 0) {
-                    tao_r = val;
-                    Serial.print("Release time: ");
-                    Serial.print(val, 3);
-                    Serial.println(" s");
-                    modRelease = false;
-                }
-            } else if (modAttack) {
-                float val = Serial.readString(5).toFloat();
-                if (val != 0) {
-                    tao_a = val;
-                    Serial.print("Attack time: ");
-                    Serial.print(val, 4);
-                    Serial.println(" s");
-                    modAttack = false;
-                }
-            }
-        
-            incomignByte = Serial.read();
-            if ((char)incomignByte == 'p' && (!modAttack && !modRelease)) {
-                itsOn = true;
-                Serial.println("Protection on");
-            } else if ((char)incomignByte == 'n' && (!modAttack && !modRelease)) {
-                itsOn = false;
-                Serial.println("Protection off");
-            } else if ((char)incomignByte == 'r' && !modRelease) {
-                modRelease = true;
-                Serial.println("Type the new release time in seconds");
-            } else if ((char)incomignByte == 'a' && !modAttack) {
-                modAttack = true;
-                Serial.println("Type the new attack time in seconds");
-            }
-        }
     }
 }
 

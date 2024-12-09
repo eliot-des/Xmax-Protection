@@ -344,7 +344,7 @@ void Operations(void)
     k = release_coeff; }
     
   Cms_comp = (1 - k) * Cms_comp + k * Cms_target;
-
+  Cms_comp = 
   // Quality factor for the compensation filter - c stands for compensation
   Qc = 1/(Rms+pow(Bl,2)/Re)*sqrt(Mms/Cms_comp);
 
@@ -384,7 +384,7 @@ void Operations(void)
 
 
   // Limiter voltage
-  val4DACOut = out;
+  val4DACOut = input1;
   //val4DACOut = input4;
   valDAC = (uint16_t)((val4DACOut + VrefDAC)*conversionConstDAC);
 
