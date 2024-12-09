@@ -1,6 +1,7 @@
 #include <ADC.h>
 #include <ADC_util.h>
 #include <SPI.h>
+#include <Arduino.h>
 
 #include "LS_Model.h"
 
@@ -54,6 +55,7 @@ volatile float b_2 = B_2;
 volatile float a_0 = A_0*4*pow(sampleRateHz,2) + A_1*2*sampleRateHz + A_2;
 volatile float a_1 = -2*A_0*4*pow(sampleRateHz,2) + 2*A_2;
 volatile float a_2 = A_0*4*pow(sampleRateHz,2) - A_1*2*sampleRateHz + A_2;
+
 
 // copying for compensation filter - step right after
 volatile float b_0_comp = a_0;
@@ -184,7 +186,7 @@ volatile float input1 = 0.0, input3 = 0.0, input4 = 0.0;
 
 
 //Output (DAC) signal initialisation
-volatile uint16_t valDAC = 0, valDACT = 0;
+volatile uint16_t valDAC = 0, valDACT = 0, valDACT2 = 0;;
 volatile float val4DACOut = 0.0;
 
 
@@ -201,20 +203,26 @@ void setup(void)
   a_2 = a_2/a_0;
   a_0 = 1.0f;
 
+  Serial.begin(115200);
+  Serial.println("b_i coeff");
+  Serial.println(b_0, 10); Serial.println(b_1, 10); Serial.println(b_2, 10);
+  Serial.println("a_i coeff");
+  Serial.println(a_0); Serial.println(a_1); Serial.println(a_2);
+
   //Coefficients are normalized with a_0_comp
-  b_0_comp /= a_0_comp;
-  b_1_comp /= a_0_comp;
-  b_2_comp /= a_0_comp;
-  a_1_comp /= a_0_comp;
-  a_2_comp /= a_0_comp;
+  b_0_comp = b_0_comp/a_0_comp;
+  b_1_comp = b_1_comp/a_0_comp;
+  b_2_comp = b_2_comp/a_0_comp;
+  a_1_comp = a_1_comp/a_0_comp;
+  a_2_comp = a_2_comp/a_0_comp;
   a_0_comp = 1.0f;
 
   // Declare needed pins as inputs or outputs
   pinMode(readPin_In1, INPUT);
   pinMode(readPin_In4, INPUT);
-  pinMode (slaveSelectPin, OUTPUT);
+  pinMode(slaveSelectPin, OUTPUT);
   pinMode(DIO, OUTPUT);
-  pinMode (LDAC, OUTPUT);
+  pinMode(LDAC, OUTPUT);
 
   /**
    * Here we initialise the ADCs
@@ -256,14 +264,14 @@ void setup(void)
   /**
    * Incase you need to use the serial monitor/plotter
    */
-  //Serial.begin(9600);
+  Serial.begin(9600);
 
   /**
    * Here we set up the onboard DACs
    * 
    * Definition de la resolution des DAC Teensy (si besoin)
    */
-  //analogWriteResolution(12);
+  analogWriteResolution(12);
 
 }
 
@@ -284,14 +292,14 @@ void Operations(void)
   /**
    * Sending data to MAX5717 Via SPI. See Data sheet for details
    */
-  digitalWrite(LDAC,HIGH);    
+  digitalWrite(LDAC, HIGH);    
   // take the SS pin low to select the chip:
-  digitalWrite(slaveSelectPin,LOW);
+  digitalWrite(slaveSelectPin, LOW);
   //  send in the address and value via SPI:
   SPI.transfer(SPIBuff, 2);
   // take the SS pin high to de-select the chip:
-  digitalWrite(slaveSelectPin,HIGH);
-  digitalWrite(LDAC,LOW);
+  digitalWrite(slaveSelectPin, HIGH);
+  digitalWrite(LDAC, LOW);
 
 
   /**
@@ -359,11 +367,11 @@ void Operations(void)
   a_2_comp = A_0*4*pow(sampleRateHz,2) - A_1_comp*2*sampleRateHz + A_2_comp;
 
   // and normalize by a_0_comp.
-  b_0_comp /= a_0_comp;
-  b_1_comp /= a_0_comp;
-  b_2_comp /= a_0_comp;
-  a_1_comp /= a_0_comp;
-  a_2_comp /= a_0_comp;
+  b_0_comp = b_0_comp/a_0_comp;
+  b_1_comp = b_1_comp/a_0_comp;
+  b_2_comp = b_2_comp/a_0_comp;
+  a_1_comp = a_1_comp/a_0_comp;
+  a_2_comp = a_2_comp/a_0_comp;
   a_0_comp = 1.0f;
 
   // Transposed Direct Form II (TDFII) is used to apply the compensation filter
@@ -380,15 +388,25 @@ void Operations(void)
   //val4DACOut = input4;
   valDAC = (uint16_t)((val4DACOut + VrefDAC)*conversionConstDAC);
 
-  //Serial.println(valDAC);
+
+  /*
+  Monitoring variables
+  */
+
+  valDACT = ((x_est * 500 + VrefDACT * 0.5) * conversionConstDACT);
+  // Serial.println(valDACT);
+
+  // This is for monitoring the Cms_comp || Rms_compensation through a digital output
+  valDACT2  = ((Cms_comp/Cms + VrefDACT * 0.5) * conversionConstDACT);
+  // valDACT2 = ((Rms_comp/Rms + VrefDACT * 0.5) * conversionConstDACT);
 
   /*
    * DAC Output - Teensy 12 bit
    */
   //valDACT = ((val4DACOut + VrefDACT*0.5)*conversionConstDACT);
   
-  //analogWrite(outPin_Aux1, valDACT);
-  //analogWrite(outPin_Aux2, valDACT);
+  analogWrite(outPin_Aux1, valDACT);
+  analogWrite(outPin_Aux2, valDACT2);
 }
 
 void loop(void)
