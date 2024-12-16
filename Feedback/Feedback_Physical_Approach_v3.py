@@ -20,18 +20,18 @@ plt.rc('legend', fontsize=12)
 #============= Definition of a signal being the input voltage ===================
 #================================================================================
 
-signal_name = 'ShookOnes'
-Fs, u = read('Audio/'+signal_name+'.wav')
-t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
-u = normalize(u[:,0])
+# signal_name = 'ShookOnes'
+# Fs, u = read('Audio/'+signal_name+'.wav')
+# t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
+# u = normalize(u[:,0])
 
 # create a sweep/chirp signal
-# signal_name = 'S'   # to further name the .wav export file - S stands for sweep
-# Fs = 48000
-# t = np.arange(0, 5, 1/Fs)
-# u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
+signal_name = 'S'   # to further name the .wav export file - S stands for sweep
+Fs = 48000
+t = np.arange(0, 5, 1/Fs)
+u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
 
-A = 4                   # gain of the amplifier -> Max tension in volts
+A = 10                   # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
 # tstart   = 11            # start time in seconds
@@ -55,13 +55,15 @@ loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['full-range1']
+loudspeaker = loudspeakers['full-range2']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
     for line in lines:
         exec(line)
 
+# print(Rms)
+# sys.exit()
 
 # Low-frequency approximation of displacement
 B_LF = np.array([0, 0, Bl/Rec])         

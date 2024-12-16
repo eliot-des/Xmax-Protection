@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig
+import sys
 
 #================================================================================
 # Thiele-small parameters
@@ -40,11 +41,12 @@ w0 = 1/np.sqrt(Mms*Cms)
 Qs = 1/(w0*Cms*(Rms+(Bl**2/Rec)))
 Q0 = 1/np.sqrt(2)
 C_tresh = 0.8
-A = (Qs-Q0)/(1-C_tresh)
+A = (Qs-Q0)/(1-C_tresh) # to fix Q_target to Q_speaker when compliance ratio is 1 (no correction)
 
 # A_list = np.geomspace(10, 30, 5)
 A_list = np.linspace(0.1, 1, 10)
 print("Cms ratio C values:", A_list)
+# sys.exit()
 
 R_track = np.zeros_like(A_list)
 

@@ -18,7 +18,7 @@ plt.rc('legend', fontsize=12)
 #============= Definition of a signal being the input voltage ===================
 #================================================================================
 
-# signal_name = 'ShookOnes'
+# signal_name = 'Thriller'
 # Fs, u = read('Audio/'+signal_name+'.wav')
 # t = np.arange(0, len(u[:,0])/Fs, 1/Fs)
 # u = normalize(u[:,0])
@@ -32,7 +32,7 @@ u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
 A = 10                   # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
-# tstart   = 11            # start time in seconds
+# tstart   = 3            # start time in seconds
 # duration = 3            # duration time in seconds
 
 # u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
@@ -139,7 +139,7 @@ b_comp = b_comp/a0_comp
 Q0 = 1/np.sqrt(2)                               # neutral quality factor
 Q0_s = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms)     # original loudspeaker quality factor - s stands for speaker
 
-C_tresh = 0.8
+C_tresh = 0.6
 A = (Q0_s-Q0)/(1-C_tresh) # to fix Q_target to Q_speaker when compliance ratio is 1 (no correction)
 
 #================================================================================
@@ -184,13 +184,9 @@ for i in range(1, len(u_hp)):
 
     Cms_comp[i] = (1-k)*Cms_comp[i-1] + k*Cms_target
 
-    Q0_c = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms_comp[i])     # Quality factor for the compensation filter - c stands for compensation
-
-    if Q0_c > Q0:
-        Rms_comp[i] = 1/Q0*np.sqrt(Mms/Cms_comp[i]) - (Bl**2/Rec)
-    else:
-        Rms_comp[i] = Rms
-    
+    # Compute quality resulting factor and adjust Rms to respect Q0
+    Q = np.maximum(Q0, A*(Cms_comp[i]/Cms-C_tresh)+Q0)
+    Rms_comp[i] = 1/Q * np.sqrt(Mms/Cms_comp[i]) - (Bl**2/Rec)    
 
     #we then compute the new compensation coeff filter (zeros are unchanged)...
     A_comp = np.array([Mms, Rms_comp[i]+Bl**2/Rec, 1/Cms_comp[i]])
@@ -232,9 +228,10 @@ ax[0].legend(loc='lower left')
 ax[0].grid()
 
 ax1twin = ax[0].twinx()
-ax1twin.plot(t, Cms_comp*1000, 'k', linewidth=1, label='Cms compensation')
+ax1twin.plot(t, Cms_comp/Cms, 'k', linewidth=1, label='')
+ax1twin.set_ylim([-0.1, 1.1])
 ax1twin.legend(loc='upper left')
-ax1twin.set(ylabel='Compliance [mm/N]')
+ax1twin.set(ylabel='Cms_comp/Cms ratio ')
 
 
 ax[1].plot(t, x, 'b', linewidth=1, label=f'Estimated displacement (feedback)\n Attack {attack_smooth*1e3:.0f} ms\n Release {release_smooth*1e3:.0f} ms')
@@ -247,9 +244,9 @@ ax[1].set_xlabel('Time [sec]')
 ax[1].grid()
 
 ax1twin = ax[1].twinx()
-ax1twin.plot(t, Rms_comp, 'k', linewidth=1, label='Rms compensation')
-ax1twin.axhline(y=Rms, color='m', linestyle='-.', label='Rms speaker')
+ax1twin.plot(t, Rms/Rms_comp, 'k', linewidth=1, label='')
+ax1twin.set_ylim([-0.1, 1.1])
 ax1twin.legend(loc='upper left')
-ax1twin.set(ylabel='Rms comp [kg/s]')
+ax1twin.set(ylabel='Rms/Rms_comp ratio')
 
 plt.show()

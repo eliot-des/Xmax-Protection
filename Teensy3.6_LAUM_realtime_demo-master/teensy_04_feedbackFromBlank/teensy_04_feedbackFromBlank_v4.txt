@@ -5,9 +5,6 @@
 #include "filterFunctions.h"
 #include "BiquadFilter.h"
 
-/*
- * En déclarant b_comp en constantes globales
- */
 
 //===================================================================
 // Speaker TS parameters - full-range1 (non-resonant)
@@ -29,10 +26,10 @@ const float Qs = 1/(Rms+pow(Bl,2)/Re)*sqrt(Mms/Cms); //speaker quality factor
 //Global variables
 const float Fs = 48000.0;
 const float Xmax = 1.5e-3; // Maximum displacement definition (Xmax) [m]
-const float Gain = 40.0f;  // Amplifier gain
+const float Gain = 20.0f;  // Amplifier gain
 volatile float x = 0.0;    // Estimated displacement [m]
 const float attack_smooth  = 0.02; // Attack..
-const float release_smooth = 0.25;  // ... and release time for gain smoothing [s]
+const float release_smooth = 0.5;  // ... and release time for gain smoothing [s]
 volatile float out = 0;    // Output voltage
 
 // X/U filter
@@ -42,8 +39,7 @@ BiquadFilterDF1 xuFilter; //tension to displacement (X/U) estimator
 
 
 // Compensation filter & indicators
-float b_comp[3] = { Mms, Rms+(Bl*Bl)/Re, 1.0/Cms}; //analog coeffof Comp filter numerator
-float bd_comp[3], ad_comp[3]; //digital coeffs of Comp filter
+float bd_comp[3], ad_comp[3]; //digital coeffs of Comp filter denumerator
 
 BiquadFilterTDF2 CompFilter; //Compensation filter
 
@@ -175,7 +171,7 @@ void setup(void)
   //===================================================================
   //===================================================================
   setXUSpeakerCoefficients(Re, Bl, Rms, Mms, Cms, Fs, bd_xu, ad_xu);
-  setCompFilterCoefficients_bis(Re, Bl, Rms, Rms_comp, Mms, Cms, Cms_comp, Fs, b_comp, bd_comp, ad_comp);
+  setCompFilterCoefficients(Re, Bl, Rms, Rms_comp, Mms, Cms, Cms_comp, Fs, bd_comp, ad_comp);
 
   xuFilter.setCoefficients(bd_xu, ad_xu);
   CompFilter.setCoefficients(bd_comp, ad_comp);
@@ -256,7 +252,7 @@ void Operations(void)
   analogWrite(outPin_Aux2, valDACT2); 
 
   // Update filter coefficient (A_2_comp only for now)
-  setCompFilterCoefficients_bis(Re, Bl, Rms, Rms_comp, Mms, Cms, Cms_comp, Fs, b_comp, bd_comp, ad_comp);
+  setCompFilterCoefficients(Re, Bl, Rms, Rms_comp, Mms, Cms, Cms_comp, Fs, bd_comp, ad_comp);
 
   CompFilter.setCoefficients(bd_comp, ad_comp);
 
