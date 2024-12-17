@@ -46,11 +46,11 @@ ax[2].plot(t, u_hp, label='Speaker terminal voltage')
 ax[2].set(ylabel=r'$U_{hp}$ [V]')
 ax[2].grid()
 
-ax[3].plot(t-0.3e-3, 1e3*x)   #delayed by 0.3 ms -> lazer delay
-ax[3].plot(t, 1e3*x_prediction)
+ax[3].plot(t-0.3e-3, 1e3*x, label='Measurements')   #delayed by 0.3 ms -> lazer delay
+ax[3].plot(t, 1e3*x_prediction, label=r'Predicted from $U_{hp}$')
 ax[3].set(xlabel='Time [s]', ylabel='Displacement [mm]')
 ax[3].grid()
-
+ax[3].legend()
 plt.show()
 
 '''
