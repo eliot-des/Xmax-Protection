@@ -103,14 +103,12 @@ x2 = x2*1000                 # displacement in mm
 #========================= Initializing parameters ==============================
 #================================================================================
 
-C = Xmax_*Rec/(A*Bl*Cms)            # optimal minimal compliance to respect Xmax
+C = np.minimum(Xmax_*Rec/(A*Bl*Cms), 1)   # optimal minimal compliance to respect Xmax
 print('Chosen C = ', np.round(C, 3))
 
-if C <= 1:
-    pass
-else:
-    raise ValueError('Gain is too low or Xmax criteria always satisfied.')
-
+if C == 1:
+    print('Gain is too low or Xmax criteria always satisfied.')
+    
 Cms_comp = np.zeros(len(u))         # compensation compliance to be adjusted sample by sample
 Cms_comp[0] = Cms                   # initial compliance value is the one of the speaker
 Cms_min = 0.9*C*Cms                 # minimum compensation compliance with a margin factor
