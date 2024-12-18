@@ -34,9 +34,9 @@ factor is adjusted to stay under 1/sqrt(2)
 signal_name = 'S'   # to further name the .wav export file - S stands for sweep
 Fs = 48000
 t = np.arange(0, 5, 1/Fs)
-u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
+u = sig.chirp(t, f0=10000, f1=20, t1=5, method='logarithmic')
 
-A = 5                   # gain of the amplifier -> Max tension in volts
+A = 10                   # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
 # tstart   = 11            # start time in seconds
@@ -92,17 +92,17 @@ x2 = x2*1000                 # displacement in mm
 #========================= Initializing parameters ==============================
 #================================================================================
 
-R = Xmax_*Rec/(A*Bl*Cms)            # optimal minimal compliance to respect Xmax
-print('Chosen R = ', np.round(R, 3))
+C = Xmax_*Rec/(A*Bl*Cms)            # optimal minimal compliance to respect Xmax
+print('Chosen C = ', np.round(C, 3))
 
-if R <= 1:
+if C <= 1:
     pass
 else:
     raise ValueError('Gain is too low or Xmax criteria always satisfied.')
 
 Cms_comp = np.zeros(len(u))         # compensation compliance to be adjusted sample by sample
 Cms_comp[0] = Cms                   # initial compliance value is the one of the speaker
-Cms_min = 0.9*R*Cms                 # minimum compensation compliance with a margin factor
+Cms_min = 0.9*C*Cms                 # minimum compensation compliance with a margin factor
 
 Rms_comp = Rms*np.ones_like(u)      # compensation loss to be adjusted sample by sample
 
@@ -112,12 +112,14 @@ A_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[0]])
 
 b_comp, a_comp = bilinear2ndOrder(B_comp, A_comp, Fs)
 
-f = np.geomspace(1, Fs/2, 1000)
-w = 2*np.pi*f
-
-
 Q0 = 1/np.sqrt(2)                               # neutral quality factor
 Q0_s = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms)     # original loudspeaker quality factor - s stands for speaker
+
+# print("Speaker quality factor:", round(Q0_s,3))
+# print("Comp filter numerator coeff:"  , b_comp)
+# print("Comp filter denumerator coeff:", a_comp)
+# sys.exit()
+
 
 #================================================================================
 #================== Main loop - feedback control algorithm ======================
@@ -126,14 +128,9 @@ Q0_s = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms)     # original loudspeaker quality f
 #Initializations
 
 x        = np.zeros(len(u))    # displacement in mm
-x_lim    = np.zeros(len(u))    # limited displacement in mm
-x_peak   = np.zeros(len(u))    # enveloppe estimator in mm
 
-attack_peak    = 0.002         # Attack time in seconds
-release_peak   = 0.001         # Release time in seconds
 attack_smooth  = 0.02          # Attack time for the gain smoothing function
 release_smooth = 0.5           # Release time for the gain smoothing function
-
 
 d_DFI   = np.zeros(4)          # memory buffer for Direct Form I
 d_TDFII = np.zeros(2)          # memory buffer for Transposed Direct Form I
@@ -151,16 +148,8 @@ for i in range(1, len(u_hp)):
 
     x[i] *= 1000
 
-    # Peak envelope estimation
-    # x_peak[i] = dynamic_peak_follower_sbs(x[i], x_peak[i-1], attack_peak, release_peak, Fs) # x_peak in mm
-    
-    # Klippel envelope estimation
-    # dx = (x[i] - x[i-1]) * Fs
-    # x_peak[i] = np.sqrt(x[i]**2 + (dx/wr)**2)
-
     #we then compare the peak of the displacement signal with Xmax
     if np.abs(x[i]) > Xmax:
-    #if x_peak[i] > Xmax:
         Cms_target = Cms_min
     else:
         Cms_target = Cms
@@ -215,7 +204,7 @@ ax[2].legend(loc='lower left')
 ax[2].grid()
 
 ax[3].plot(t, Cms_comp/Cms, 'r', linewidth=1, label='Cms_comp/Cms')
-ax[3].set_ylabel=('C ratio')
+ax[3].set_ylabel('C ratio')
 ax[3].set_ylim([-0.1, 1.1])
 ax[3].legend(loc='lower left')
 ax[3].grid()

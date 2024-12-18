@@ -13,6 +13,11 @@ plt.rc('font', size=14)
 plt.rc('axes', linewidth=1.5, labelsize=14)
 plt.rc('legend', fontsize=12)
 
+'''
+Feddback V3 dot not consider resonant speaker. Compensation filter quality
+factor is adjusted to stay under 1/sqrt(2)
+Arduino version do not use bilinear2ndOrder and gain smoothing function
+'''
 
 #================================================================================
 #============= Definition of a signal being the input voltage ===================
@@ -49,11 +54,12 @@ Xmax_= Xmax*1e-3    #in m
 loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'full-range2' :'Dayton_HARB252-8',
                 'woofer1': 'Peerless_HDSP830860',
+                'woofer1_Klippel': 'Peerless_HDSP830860_Klippel',
                 'woofer2': 'Dayton_DCS165-4',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['full-range2']
+loudspeaker = loudspeakers['woofer1_Klippel']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
@@ -137,14 +143,12 @@ b_comp = b_comp/a0_comp
 Q0 = 1/np.sqrt(2)                               # neutral quality factor
 Q0_s = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms)     # original loudspeaker quality factor - s stands for speaker
 
-C_tresh = 0.8
-A = (Q0_s-Q0)/(1-C_tresh) # to fix Q_target to Q_speaker when compliance ratio is 1 (no correction)
 
 #================================================================================
 #================== Main loop - feedback control algorithm ======================
 #================================================================================
 
-x        = np.zeros(len(u))    # displacement in mm
+x = np.zeros(len(u))    # displacement in mm
 
 attack_smooth  = 0.02          # Attack time for the gain smoothing function
 release_smooth = 0.5           # Release time for the gain smoothing function
@@ -174,7 +178,6 @@ for i in range(1, len(u_hp)):
         Cms_target = Cms
 
     # we then apply the gain smoothing function to the Cms_comp value of the compensation filter
-    # Cms_comp[i] = gain_factor_smoothing_sbs_bis(Cms_target, Cms_comp[i-1], attack_smooth, release_smooth, Fs)
     if Cms_target < Cms_comp[i-1]:
         k = attack_coeff
     else:
@@ -230,9 +233,9 @@ ax[0].legend(loc='lower left')
 ax[0].grid()
 
 ax1twin = ax[0].twinx()
-ax1twin.plot(t, Cms_comp*1000, 'k', linewidth=1, label='Cms compensation')
+ax1twin.plot(t, Cms_comp/Cms, 'k', linewidth=1, label='C ratio')
+ax1twin.set_ylim([-0.1, 1.1])
 ax1twin.legend(loc='upper left')
-ax1twin.set(ylabel='Compliance [mm/N]')
 
 
 ax[1].plot(t, x, 'b', linewidth=1, label=f'Estimated displacement (feedback)\n Attack {attack_smooth*1e3:.0f} ms\n Release {release_smooth*1e3:.0f} ms')
@@ -245,9 +248,8 @@ ax[1].set_xlabel('Time [sec]')
 ax[1].grid()
 
 ax1twin = ax[1].twinx()
-ax1twin.plot(t, Rms_comp, 'k', linewidth=1, label='Rms compensation')
-ax1twin.axhline(y=Rms, color='m', linestyle='-.', label='Rms speaker')
+ax1twin.plot(t, Rms/Rms_comp, 'k', linewidth=1, label='R ratio')
+ax1twin.set_ylim([-0.1, 1.1])
 ax1twin.legend(loc='upper left')
-ax1twin.set(ylabel='Rms comp [kg/s]')
 
 plt.show()

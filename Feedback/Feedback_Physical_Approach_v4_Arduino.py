@@ -13,6 +13,12 @@ plt.rc('font', size=14)
 plt.rc('axes', linewidth=1.5, labelsize=14)
 plt.rc('legend', fontsize=12)
 
+'''
+Feddback V4 uses a mapping function to let a resonance speaker Q factor unchaged when
+any compensation is applied.
+Arduino version do not use bilinear2ndOrder and gain smoothing function
+'''
+
 
 #================================================================================
 #============= Definition of a signal being the input voltage ===================
@@ -29,7 +35,7 @@ Fs = 48000
 t = np.arange(0, 5, 1/Fs)
 u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
 
-A = 10                   # gain of the amplifier -> Max tension in volts
+A = 10                  # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
 # tstart   = 3            # start time in seconds
@@ -49,6 +55,7 @@ Xmax_= Xmax*1e-3    #in m
 loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'full-range2' :'Dayton_HARB252-8',
                 'woofer1': 'Peerless_HDSP830860',
+                'woofer1_Klippel': 'Peerless_HDSP830860_Klippel',
                 'woofer2': 'Dayton_DCS165-4',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
@@ -88,6 +95,7 @@ b = b/a0
 # print(f"volatile float b0 = {b[0]}, b1 = {b[1]}, b2 = {b[2]};")
 # print(f"volatile float a1 = {a[1]}, a2 = {a[2]};")
 
+# print(round(Rms, 4))
 # sys.exit()
 
 
@@ -103,13 +111,11 @@ x2 = x2*1000                 # displacement in mm
 #========================= Initializing parameters ==============================
 #================================================================================
 
-C = Xmax_*Rec/(A*Bl*Cms)            # optimal minimal compliance to respect Xmax
+C = np.minimum(Xmax_*Rec/(A*Bl*Cms), 1)   # optimal minimal compliance to respect Xmax
 print('Chosen C = ', np.round(C, 3))
 
-if C <= 1:
-    pass
-else:
-    raise ValueError('Gain is too low or Xmax criteria always satisfied.')
+if C == 1:
+    print('Gain is too low or Xmax criteria always satisfied.')
 
 Cms_comp = np.zeros(len(u))         # compensation compliance to be adjusted sample by sample
 Cms_comp[0] = Cms                   # initial compliance value is the one of the speaker
@@ -139,14 +145,17 @@ b_comp = b_comp/a0_comp
 Q0 = 1/np.sqrt(2)                               # neutral quality factor
 Q0_s = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms)     # original loudspeaker quality factor - s stands for speaker
 
+# print("Speaker quality factor:", round(Q0_s,3))
+
 C_tresh = 0.6
 A = (Q0_s-Q0)/(1-C_tresh) # to fix Q_target to Q_speaker when compliance ratio is 1 (no correction)
+
 
 #================================================================================
 #================== Main loop - feedback control algorithm ======================
 #================================================================================
 
-x        = np.zeros(len(u))    # displacement in mm
+x = np.zeros(len(u))    # displacement in mm
 
 attack_smooth  = 0.02          # Attack time for the gain smoothing function
 release_smooth = 0.5           # Release time for the gain smoothing function
@@ -176,7 +185,6 @@ for i in range(1, len(u_hp)):
         Cms_target = Cms
 
     # we then apply the gain smoothing function to the Cms_comp value of the compensation filter
-    # Cms_comp[i] = gain_factor_smoothing_sbs_bis(Cms_target, Cms_comp[i-1], attack_smooth, release_smooth, Fs)
     if Cms_target < Cms_comp[i-1]:
         k = attack_coeff
     else:
@@ -217,36 +225,36 @@ for i in range(1, len(u_hp)):
 #================================== Main plot ===================================
 #================================================================================
 
-fig, ax = plt.subplots(2,1, sharex=True)
+fig, ax = plt.subplots(4, 1, sharex=True)
 
-ax[0].plot(t, x, 'b', linewidth=1, label=f'Estimated displacement (feedback)\n Attack {attack_smooth*1e3:.0f} ms\n Release {release_smooth*1e3:.0f} ms')
-ax[0].plot(t, x2, linewidth=1, alpha=0.2, label='Displacement (no feedback)')
-ax[0].axhline(y=Xmax, color='red', linestyle='--', label='+/- Xmax')
-ax[0].axhline(y=-Xmax, color='red', linestyle='--')
-ax[0].set_ylabel('Amplitude [mm]')
+ax[0].plot(t, u, 'b', alpha=0.2, linewidth=1, label='U in')
+ax[0].set_ylabel('[mm]')
 ax[0].legend(loc='lower left')
 ax[0].grid()
 
-ax1twin = ax[0].twinx()
-ax1twin.plot(t, Cms_comp/Cms, 'k', linewidth=1, label='')
-ax1twin.set_ylim([-0.1, 1.1])
-ax1twin.legend(loc='upper left')
-ax1twin.set(ylabel='Cms_comp/Cms ratio ')
-
-
-ax[1].plot(t, x, 'b', linewidth=1, label=f'Estimated displacement (feedback)\n Attack {attack_smooth*1e3:.0f} ms\n Release {release_smooth*1e3:.0f} ms')
-ax[1].plot(t, x2, linewidth=1, alpha=0.2, label='Displacement (no feedback)')
-ax[1].axhline(y=Xmax, color='red', linestyle='--', label='+/- Xmax')
-ax[1].axhline(y=-Xmax, color='red', linestyle='--')
-ax[1].set_ylabel('Amplitude [mm]')
-ax[1].set_xlabel('Time [sec]')
-# ax[1].legend(loc='lower left')
+ax[1].plot(t, u_hp, linewidth=1, label='U hp')
+ax[1].set_ylabel('[mm]')
+ax[1].legend(loc='lower left')
 ax[1].grid()
 
-ax1twin = ax[1].twinx()
+ax[2].plot(t, x, 'b', linewidth=1, label=f'Estimated displacement (feedback)\n Attack {attack_smooth*1e3:.0f} ms\n Release {release_smooth*1e3:.0f} ms')
+ax[2].plot(t, x2, linewidth=1, alpha=0.2, label='Displacement (no feedback)')
+ax[2].axhline(y=Xmax, color='red', linestyle='--', label='+/- Xmax')
+ax[2].axhline(y=-Xmax, color='red', linestyle='--')
+ax[2].set_ylabel('[mm]')
+ax[2].legend(loc='lower left')
+ax[2].grid()
+
+ax[3].plot(t, Cms_comp/Cms, 'r', linewidth=1, label='')
+ax[3].set_ylabel('C ratio')
+ax[3].set_ylim([-0.1, 1.1])
+ax[3].legend(loc='upper left')
+ax[3].grid()
+
+ax1twin = ax[3].twinx()
 ax1twin.plot(t, Rms/Rms_comp, 'k', linewidth=1, label='')
 ax1twin.set_ylim([-0.1, 1.1])
 ax1twin.legend(loc='upper left')
-ax1twin.set(ylabel='Rms/Rms_comp ratio')
+ax1twin.set(ylabel='R ratio')
 
 plt.show()
