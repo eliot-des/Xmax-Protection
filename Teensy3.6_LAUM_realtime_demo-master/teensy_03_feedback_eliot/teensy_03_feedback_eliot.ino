@@ -9,7 +9,7 @@
 //===================================================================
 //Peerless SDS-P830656 driver params
 const float fr  = 72.0;     //[Hz]
-const float Rec = 6.4;      //[Ohm]
+const float Re  = 6.4;      //[Ohm]
 const float Bl  = 5.74;     //[N/A]
 const float Rms = 1.897;    //[N.s/m]
 const float Mms = 8.88e-3;  //[Kg]
@@ -21,8 +21,8 @@ BiquadFilterDF1 xuFilter;     //tension to displacement (X/U) estimator
 BiquadFilterTDF2 CompFilter;  //Compensation filter
 
 const float Fs = 48000.0;
-const float Xmax = 1.5e-3; // Maximum displacement definition (Xmax) [m]
-const float Gain = 1.0f;  // Amplifier + teensy gain
+const float Xmax = 0.5e-3; // Maximum displacement definition (Xmax) [m]
+const float Gain = 2.0f;  // Amplifier gain
 volatile float x = 0.0f;   // Estimated displacement [m]
 const float attack_smooth  = 0.02; // Attack time for gain smoothing
 const float release_smooth = 0.5;  // Release time for gain smoothing
@@ -30,11 +30,9 @@ volatile float out = 0;    // Output voltage
 
 // X/U filter
 float b_xu[3], a_xu[3];   //analog  coeffs of X/U TF
-float bd_xu[3], ad_xu[3]; //digital coeffs of X/U TF
 
 // Compensation filter & indicators
 float b_comp[3], a_comp[3];   //analog  coeffs of Comp filter denumerator
-float bd_comp[3], ad_comp[3]; //digital coeffs of Comp filter denumerator
 
 
 const float C_min = min(1, Xmax*Re/(Gain*Bl*Cms)); // optimal minimal compliance to respect Xmax
@@ -45,7 +43,6 @@ float Cms_comp      = Cms;              // variable Cms_compensation
 float Cms_target    = Cms;              // Cms target to vary
 
 const float Q0 = 0.707; // neutral quality factor
-volatile float Qc = Qs;
 
 volatile float Rms_comp = Rms; // Rms compensation to be adujsted real-time
 float R_instant = 1.0f;        // instantaneous ratio of Rms (Rms/Rms_comp)
@@ -162,11 +159,11 @@ void setup(void)
 
   //===================================================================
   //===================================================================
-  setXUSpeakerCoefficients(Re, Bl, Rms, Mms, Cms, Fs, bd_xu, ad_xu);
-  setCompFilterCoefficients(Re, Bl, Rms, Rms_comp, Mms, Cms, Cms_comp, Fs, bd_comp, ad_comp);
+  setXUSpeakerCoefficients(Re, Bl, Rms, Mms, Cms, Fs, b_xu, a_xu);
+  updateCompensationCoefficients(Re, Bl, Rms, Mms, Cms, Cms_comp, Fs, b_comp, a_comp);
 
-  xuFilter.setCoefficients(bd_xu, ad_xu);
-  CompFilter.setCoefficients(bd_comp, ad_comp);
+  xuFilter.setCoefficients(b_xu, a_xu);
+  CompFilter.setCoefficients(b_comp, a_comp);
 }
 
 
@@ -196,8 +193,7 @@ void Operations(void)
   input1 = (valADC0 * conversionConstADC - 1.65);
 
   // Estimate the displacement considering amp. gain and monitor it
-  x = xuFilter.process(out*Gain);
-
+  x = xuFilter.process(out*Gain*2.0);
 
   // Compute Cms compensation value
   if (fabs(x) > Xmax){
@@ -207,16 +203,17 @@ void Operations(void)
   }
 
   //smoothing process
-  if (Cms_target < Cms_comp) {
+  if (Cms_target < Cms_comp) { 
     k = attack_coeff;
-  } else {
+  } else { 
     k = release_coeff;
   }
   Cms_comp = (1-k)*Cms_comp + k*Cms_target;
 
 
   // Update compensation filter coefficient (bd_comp, ad_comp)
-  updateCompensationCoefficients(Mms, Rms, Bl, Rec, Cms_comp, Fs, b_comp, a_comp);
+  updateCompensationCoefficients(Re, Bl, Rms, Mms, Cms, Cms_comp, Fs, b_comp, a_comp);
+  CompFilter.setCoefficients(b_comp, a_comp);
 
   // Apply filter
   out = CompFilter.process(input1);
@@ -224,8 +221,8 @@ void Operations(void)
 
   valDAC = (uint16_t)((out + VrefDAC)*conversionConstDAC);
 
-  valDACT  = ((Cms/Cms_comp + VrefDACT * 0.5) * conversionConstDACT);    //DAC Output - Teensy 12 bit
-  valDACT2  = ((Rms/Rms_comp + VrefDACT * 0.5) * conversionConstDACT);    //DAC Output - Teensy 12 bit
+  valDACT  = ((Cms_comp/Cms + VrefDACT * 0.5) * conversionConstDACT);    //DAC Output - Teensy 12 bit
+  valDACT2  = ((x*1e3 + VrefDACT * 0.5) * conversionConstDACT);    //DAC Output - Teensy 12 bit
   
   analogWrite(outPin_Aux1, valDACT);
   analogWrite(outPin_Aux2, valDACT2); 

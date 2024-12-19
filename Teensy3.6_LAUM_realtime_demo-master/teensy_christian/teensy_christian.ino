@@ -24,11 +24,12 @@ LS_Model lsModel_np;
 // const float Le = 0.29e-3; // [H]
 
 // Peerless Loudspeaker
-const float Mms = 9.257e-3; //#[Kg]
-const float Rms = 1.866; //#[N.s/m]
-const float Kms = 1800; //#[N/m]
-const float Bl = 5.816; //#[N/A]
-const float Re = 6.76; //#[ohm]
+const float Re  = 6.4;      //[Ohm]
+const float Bl  = 5.74;     //[N/A]
+const float Rms = 1.897;    //[N.s/m]
+const float Mms = 8.88e-3;  //[Kg]
+const float Cms = 560e-6;   //[N/m]
+const float Kms = 1/Cms;
 
 // Audax Loudspeaker
 // const float Mms = 20.4e-3; //#[Kg]
@@ -38,7 +39,7 @@ const float Re = 6.76; //#[ohm]
 // const float Re = 6.06; //#[ohm]
 
 // Amplifier + Teensy board Gain
-float Gain = 8;
+float Gain = 8.0f;
 // Maximum displacement definition (Xmax)
 float Xmax = 0.5e-3;
 // Estimated displacement with protection
@@ -75,7 +76,7 @@ float fcmin = 5;
 // High-pass filter buffer
 volatile float d0_hp = 0, d1_hp = 0, d2_hp = 0, d3_hp = 0;
 
-bool itsOn = false, itsFirst = true;
+bool itsOn = true, itsFirst = true;
 int incomignByte = 0;
 bool modRelease = false;
 bool modAttack = false;
