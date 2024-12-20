@@ -37,11 +37,11 @@ inline void setXUSpeakerCoefficients(float Rec, float Bl, float Rms, float Mms, 
 
 // Function to update compensation filter coefficients
 inline void updateCompensationCoefficients(
-    float Re, float Bl, float Rms, float Mms, float Cms, float Cms_comp,
-    float Fs, float* b_comp, float* a_comp) 
+    float Re, float Bl, float Rms, float Mms, float Cms, 
+    float Rms_comp, float Cms_comp, float Fs, float* b_comp, float* a_comp) 
 {
     float B_comp[3] = {Mms, Rms + (Bl * Bl) / Re, 1.0 / Cms};
-    float A_comp[3] = {Mms, Rms + (Bl * Bl) / Re, 1.0 / Cms_comp};
+    float A_comp[3] = {Mms, Rms_comp + (Bl * Bl) / Re, 1.0 / Cms_comp};
   
     bilinear2ndOrder(B_comp, A_comp, Fs, b_comp, a_comp);
 }
