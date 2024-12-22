@@ -26,34 +26,35 @@ plt.rc('legend', fontsize=12)
 
 #create a sweep/chirp signal
 Fs = 48000
-t = np.arange(0, 5, 1/Fs)
-u = sig.chirp(t, f0=10000, f1=10, t1=5, method='logarithmic')
+t = np.arange(0, 3, 1/Fs)
+u = sig.chirp(t, f0=10000, f1=10, t1=3, method='logarithmic')
 
-A = 4                   # gain of the amplifier -> Max tension in volts
+A = 16.33/2                   # gain of the amplifier -> Max tension in volts
 u = A*u                 # tension in volts
  
-tstart   = 0            # start time in seconds
-duration = 5            # duration time in seconds
+# tstart   = 0            # start time in seconds
+# duration = 5            # duration time in seconds
 
-u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
-t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
+# u = u[int(tstart*Fs):int((tstart+duration)*Fs)]
+# t = t[int(tstart*Fs):int((tstart+duration)*Fs)]
 
 #================================================================================
 #==== Importing speaker TS parameters and defining the displacement filter ======
 #================================================================================
 
-Xmax = 1            #in mm
+Xmax = 0.75            #in mm
 Xmax_= Xmax*1e-3    #in m
 
 # Thiele-small parameters
 loudspeakers = {'full-range1' :'Dayton_CE4895-8',
                 'full-range2' :'Dayton_HARB252-8',
                 'woofer1': 'Peerless_HDSP830860',
+                'woofer1_Klippel': 'Peerless_HDSP830860_Klippel',
                 'woofer2': 'Dayton_DCS165-4',
                 'woofer3': 'Dayton_RS150-4',
                 'subwoofer1': 'B&C_15FW76-4'}
 
-loudspeaker = loudspeakers['full-range1']
+loudspeaker = loudspeakers['woofer1_Klippel']
 
 with open(f'Dataset_T&S/{loudspeaker}.txt', 'r') as f:
     lines = f.readlines()
@@ -82,13 +83,11 @@ x2 = x2*1000                 # displacement in mm
 #========================= Initializing parameters ==============================
 #================================================================================
 
-R = Xmax_*Rec/(A*Bl*Cms)            # optimal minimal compliance to respect Xmax. R:=Cms_comp/Cms
+R = min(Xmax_*Rec/(A*Bl*Cms), 1)            # optimal minimal compliance to respect Xmax. R:=Cms_comp/Cms
 print('Chosen R = ', np.round(R, 3))
 
-if R <= 1:
-    pass
-else:
-    raise ValueError('Gain is too low or Xmax criteria always satisfied.')
+if R == 1:
+    print('Gain is too low or Xmax criteria always satisfied.')
 
 Cms_comp = np.zeros(len(u))         # compensation compliance to be adjusted sample by sample
 Cms_comp[0] = Cms                   # initial compliance value is the one of the speaker
@@ -100,8 +99,10 @@ A_comp = np.array([Mms, Rms+Bl**2/Rec, 1/Cms_comp[0]])
 
 b_comp, a_comp = bilinear2ndOrder(B_comp, A_comp, Fs)
 
-f = np.geomspace(1, Fs/2, 1000)
-w = 2*np.pi*f
+Q0_s = 1/(Rms+(Bl**2)/Rec)*np.sqrt(Mms/Cms)     # original loudspeaker quality factor - s stands for speaker
+print("Speaker quality factor:", round(Q0_s,3))
+# print("Rms:", round(Rms,4))
+sys.exit()
 
 #================================================================================
 #================== Main loop - feedback control algorithm ======================
@@ -180,10 +181,16 @@ ax.legend(loc='lower left')
 ax.grid()
 
 ax1twin = ax.twinx()
-ax1twin.plot(t, Cms_comp*1000, 'k', linewidth=1, label='Cms compensation')
+ax1twin.plot(t, Cms_comp/Cms, 'k', linewidth=1, label='Cms ratio')
 ax1twin.legend(loc='upper left')
-ax1twin.set(ylabel='Compliance [mm/N]')
+ax1twin.set(ylabel='C ratio')
 
 # plt.savefig(f'Figures/physical_approach/simulation_{loudspeaker}.pdf')
 plt.show()
 plt.tight_layout
+
+
+fig, ax = plt.subplots()
+
+ax.plot(t, u_hp)
+plt.show()

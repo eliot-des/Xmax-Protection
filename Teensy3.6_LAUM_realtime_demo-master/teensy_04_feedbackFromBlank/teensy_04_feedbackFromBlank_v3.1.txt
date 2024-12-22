@@ -5,59 +5,64 @@
 #include "filterFunctions.h"
 #include "BiquadFilter.h"
 
+/*
+ * Feedback v3
+ * Dot not consider resonant speaker. Compensation filter quality
+ * factor is adjusted to stay under 1/sqrt(2).
+ * v3.1 DO NOT uses filter function
+ */
+
 
 //===================================================================
-// Speaker TS parameters - full-range1 (non-resonant)
-// const float Mms = 2.72e-3; //#[kg]
-// const float Rms = 0.368907; //#[kg/s]
-// const float Cms = 0.61e-3; //#[mm/N]
-// const float Bl = 5.17; //#[T.m]
-// const float Re = 7.3; //#[ohm]
-// const float Qs = 1/(Rms+pow(Bl,2)/Re)*sqrt(Mms/Cms); //speaker quality factor
+// Speaker TS parameters - Peerless
 
-// Speaker TS parameters - full-range2 (resonant)
-const float Mms = 3.20e-3; //#[kg]
-const float Rms = 0.7287061; //#[kg/s]
-const float Cms = 0.30e-3; //#[mm/N]
-const float Bl = 3.04; //#[T.m]
-const float Re = 7.2; //#[ohm]
-const float Qs = 1/(Rms+pow(Bl,2)/Re)*sqrt(Mms/Cms); //speaker quality factor
+const float Mms = 10.0e-3; //#[kg]
+const float Rms = 1.462; //#[kg/s]
+const float Cms = 590e-6; //#[mm/N]
+const float Bl  = 5.594; //#[T.m]
+const float Re  = 7.0; //#[ohm]
+const float Qs  = 1/(Rms+pow(Bl,2)/Re)*sqrt(Mms/Cms); //speaker quality factor
 
 //Global variables
 const float Fs = 48000.0;
-const float Xmax = 1.5e-3; // Maximum displacement definition (Xmax) [m]
-const float Gain = 20.0f;  // Amplifier gain
-volatile float x = 0.0;    // Estimated displacement [m]
+float Xmax = 1e-3; // Maximum displacement definition (Xmax) [m]
+float GainT = 0.5;  // Teensy gain
+float GainAmp = 2; // Amplifier gain 
+float GainTot = GainT*GainAmp; // Total gain
+volatile float x;    // Estimated displacement [m]
 const float attack_smooth  = 0.02; // Attack..
 const float release_smooth = 0.5;  // ... and release time for gain smoothing [s]
 volatile float out = 0;    // Output voltage
 
 // X/U filter
+float A_0 = Mms; //analog  coeffs of X/U TF
+float A_1 = Rms+pow(Bl,2)/Re;
+float A_2 = 1/Cms;
+
 float bd_xu[3], ad_xu[3]; //digital coeffs of X/U TF
 
 BiquadFilterDF1 xuFilter; //tension to displacement (X/U) estimator
 
 
 // Compensation filter & indicators
-float bd_comp[3], ad_comp[3]; //digital coeffs of Comp filter denumerator
+volatile float A_2_comp;
+volatile float b_0_comp, b_1_comp, b_2_comp, a_0_comp, a_1_comp, a_2_comp;
 
-BiquadFilterTDF2 CompFilter; //Compensation filter
+// Filter buffer (TDFII)
+volatile float d0_comp, d1_comp;
 
-const float C_min = min(1, Xmax*Re/(Gain*Bl*Cms)); // optimal minimal compliance to respect Xmax
-float C_instant = C_min; // instantaneous ratio on compliance (Cms_comp/Cms)
+const float C_min = min(1, Xmax*Re/(GainAmp*Bl*Cms)); // optimal minimal compliance to respect Xmax
+float C_instant = 1.0f; // instantaneous ratio on compliance (Cms_comp/Cms)
 
-const float Cms_min = 0.9*C_min*Cms; // minimum compensation compliance with a margin factor
+const float Cms_min = 0.9*C_min*Cms;   // minimum compensation compliance with a margin factor
 float Cms_comp = Cms; // variable Cms_compensation
 float Cms_target = Cms; // Cms target to vary
 
+const float Q0 = 0.707; // neutral quality factor
+volatile float Qc = Qs;
+
 volatile float Rms_comp = Rms; // Rms compensation to be adujsted real-time
 float R_instant = 1.0f;        // instantaneous ratio of Rms (Rms/Rms_comp)
-
-// Mapping function between C ratio and Q
-const float Q0 = 0.707; // neutral quality factor
-volatile float Qc = Qs; // quality factor of Hxu*Hcomp
-const float C_tresh = 0.6f; // Compliance treshold 
-const float A = (Qs - Q0) / (1 - C_tresh); // mapping function - slope part
 
 
 // Gain smoothing
@@ -111,6 +116,7 @@ volatile float input1 = 0.0, input3 = 0.0, input4 = 0.0;
 
 //Output (DAC) signal initialisation
 volatile uint16_t valDAC = 0, valDACT = 0, valDACT2 = 0;
+// volatile float val4DACOut = 0.0;
 
 // Using the Pedvide ADC Library on Github
 ADC *adc = new ADC(); // adc object
@@ -171,10 +177,8 @@ void setup(void)
   //===================================================================
   //===================================================================
   setXUSpeakerCoefficients(Re, Bl, Rms, Mms, Cms, Fs, bd_xu, ad_xu);
-  setCompFilterCoefficients(Re, Bl, Rms, Rms_comp, Mms, Cms, Cms_comp, Fs, bd_comp, ad_comp);
-
+  
   xuFilter.setCoefficients(bd_xu, ad_xu);
-  CompFilter.setCoefficients(bd_comp, ad_comp);
 
   // Serial.println("coeff xu - b then a");
   // Serial.println(bd_xu, 10); Serial.println(ad_xu, 10);
@@ -206,60 +210,92 @@ void Operations(void)
   //===================================================================
    
   //Read ADC Value and convert to voltage while removing any offsets
-  input1 = (valADC0 * conversionConstADC - 1.65);
-  // input4 = (valADC1 * conversionConstADC - 1.65);  
+  input1 = (valADC0 * conversionConstADC - 1.65); 
 
   // Estimate the displacement considering amp. gain and monitor it
-  x = xuFilter.process(out*Gain);
-  
-  // valDACT2 = ((x*1000 + VrefDACT * 0.5) * conversionConstDACT);   //DAC Output - Teensy 12 bit
-  // analogWrite(outPin_Aux2, valDACT2);
+  // x = xuFilter.process(out*GainAmp);
+  x = xuFilter.process(out*GainTot);
 
   // Compute Cms compensation value
-  if (abs(x) > Xmax){
-    Cms_target = Cms_min;
-  } else {
-    Cms_target = Cms;
-  }
+  // if (fabs(x) > Xmax){
+  //   Cms_target = Cms_min;
+  // } else {
+  //   Cms_target = Cms;
+  // }
 
-  if (Cms_target < Cms_comp) {
-    k = attack_coeff;
-  } else {
-    k = release_coeff;
-  }
+  // if (Cms_target < Cms_comp) {
+  //   k = attack_coeff;
+  // } else {
+  //   k = release_coeff;
+  // }
 
-  Cms_comp = (1-k)*Cms_comp + k*Cms_target;
+  // Cms_comp = (1-k)*Cms_comp + k*Cms_target;
+  Cms_comp = Cms;
+
+  // Compute new equivalent quality factor of Hxu*Hcomp
+  // Qc = 1/(Rms+pow(Bl,2)/Re)*sqrt(Mms/Cms_comp);
+
+  // Adjust Rms comp
+  // if (Qc > Q0){
+  //   Rms_comp = 1/Q0*sqrt(Mms/Cms_comp) - (Bl*Bl/Re);
+  // } else {
+  //   Rms_comp = Rms;
+  // }
+
+  // For test
+  Rms_comp = Rms;
+  
+
+  // Update filter coefficient (A_2_comp only for now)
+  volatile float b_0_comp = A_0*4*pow(Fs,2) + A_1*2*Fs + A_2;
+  volatile float b_1_comp = -2*A_0*4*pow(Fs,2) + 2*A_2;
+  volatile float b_2_comp = A_0*4*pow(Fs,2) - A_1*2*Fs + A_2;
+
+  volatile float A_2_comp = 1/Cms_comp;
+
+  volatile float a_0_comp = A_0*4*pow(Fs,2) + A_1*2*Fs + A_2_comp;
+  volatile float a_1_comp = -2*A_0*4*pow(Fs,2) + 2*A_2_comp;
+  volatile float a_2_comp = A_0*4*pow(Fs,2) - A_1*2*Fs + A_2_comp;
+
+
+  //Hcomp coefficients normalization by a_0_comp 
+  b_0_comp = b_0_comp/a_0_comp;
+  b_1_comp = b_1_comp/a_0_comp;
+  b_2_comp = b_2_comp/a_0_comp;
+  a_1_comp = a_1_comp/a_0_comp;
+  a_2_comp = a_2_comp/a_0_comp;
+  a_0_comp = 1.0f;
+
+  // Apply filter
+  // out = CompFilter.process(input1);
+  out = b_0_comp*input1 + d0_comp;
+  // out = b_0_comp*input1*GainT + d0_comp;
+
+  // Update filter states
+  d0_comp = b_1_comp*input1 - a_1_comp*out + d1_comp;
+  d1_comp = b_2_comp*input1 - a_2_comp*out;
+  // d0_comp = b_1_comp*input1*GainT - a_1_comp*out*GainAmp + d1_comp;
+  // d1_comp = b_2_comp*input1*GainT - a_2_comp*out*GainAmp;
+
+  // Output to DAC
+  out = x*1e3;
+  valDAC = (uint16_t)((out + VrefDAC)*conversionConstDAC);
+
+
 
   // Monitor compliance ratio (C_intant is between 0 and 1)
   C_instant = Cms_comp/Cms;
   valDACT  = ((C_instant + VrefDACT * 0.5) * conversionConstDACT);    //DAC Output - Teensy 12 bit
   analogWrite(outPin_Aux1, valDACT);
-  // Serial.println("Compliance instantaneous ratio:");
-  // Serial.println(C_instant, 3);
 
-  // Compute new equivalent quality factor of Hxu*Hcomp using mapping function
-  Qc = max(Q0, A*(Cms_comp / Cms-C_tresh) + Q0);
-
-  // define Rms comp to respec Qc
-  Rms_comp = 1/Qc * sqrt(Mms/Cms_comp) - (Bl*Bl/Re);
-
-  // For test
-  // Rms_comp = Rms;
-  
-  // and monitor ratio of Rms
+  // and monitor ratio of Rms (R_intant is between 0 and 1)
   R_instant = Rms/Rms_comp;
   valDACT2  = ((R_instant + VrefDACT * 0.5) * conversionConstDACT);    //DAC Output - Teensy 12 bit
-  analogWrite(outPin_Aux2, valDACT2); 
+  analogWrite(outPin_Aux2, valDACT2);
 
-  // Update filter coefficient (A_2_comp only for now)
-  setCompFilterCoefficients(Re, Bl, Rms, Rms_comp, Mms, Cms, Cms_comp, Fs, bd_comp, ad_comp);
+  // valDACT2 = ((x*1000 + VrefDACT * 0.5) * conversionConstDACT);   //DAC Output - Teensy 12 bit
+  // analogWrite(outPin_Aux2, valDACT2);
 
-  CompFilter.setCoefficients(bd_comp, ad_comp);
-
-  // Apply filter
-  out = CompFilter.process(input1);
-
-  valDAC = (uint16_t)((out + VrefDAC)*conversionConstDAC);
 }
 
 
