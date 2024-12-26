@@ -173,13 +173,13 @@ for i in range(3):
 
 plt.show()
 
-fig.savefig("Limiter_noHold.pdf", format="pdf", transparent=True)
+#fig.savefig("Limiter_noHold.pdf", format="pdf", transparent=True)
 
 #=============================================================
 #Export the output signal without normalizing it
 
 '''
-x_lim = x_lim * 32767
+x_lim = x_lim *  32767
 x_lim = x_lim.astype(np.int16)
 
 #write the output signal
