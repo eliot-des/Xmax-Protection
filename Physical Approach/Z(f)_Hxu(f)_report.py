@@ -11,7 +11,7 @@ plt.close("all")
 
 # =================== KLIPPEL MEASUREMENT==================
 Z_klippel   = 'Measurements/Klippel/Magnitude_of_electric_impedance_Z(f).txt'
-Hxu_Klippel = 'Measurements/Klippel/Magnitude_of_transfer_function_Hx(f)).txt'
+Hxu_Klippel = 'Measurements/Klippel/Magnitude_of_transfer_function_Hx(f).txt'
 
 rawdata_Z = np.loadtxt(Z_klippel, skiprows=3)
 rawdata_H = np.loadtxt(Hxu_Klippel, skiprows=5)
@@ -57,7 +57,7 @@ fig, ax = plt.subplots(1, 2)
 ax[0].semilogx(f_axis_1, Z_m, label='measured')
 ax[0].semilogx(f_axis_1, Z_f, label='fitted')
 ax[0].semilogx(f_axis_1, np.abs(Z_ts), label='reconstructed')
-ax[0].set_xlim([f_axis_1[0], f_axis_1[-1]])
+ax[0].set_xlim([10, f_axis_1[-1]])
 ax[0].grid(which='both')
 ax[0].legend(loc='upper right')
 ax[0].set_xlabel('Frequency [Hz]')
@@ -67,7 +67,7 @@ ax[1].semilogx(f_axis_2, H_m, label='measured')
 ax[1].semilogx(f_axis_2, H_f_noC, label='fitted without creep')
 ax[1].semilogx(f_axis_2, H_f, label='fitted')
 ax[1].semilogx(f_axis_2, np.abs(Hxu_ts)*1000, label='reconstructed')
-ax[1].set_xlim([f_axis_2[0], f_axis_2[-1]])
+ax[1].set_xlim([10, f_axis_2[-1]])
 ax[1].grid(which='both')
 ax[1].legend(loc='upper right')
 ax[1].set_xlabel('Frequency [Hz]')
