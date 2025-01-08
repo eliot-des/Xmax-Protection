@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import scipy.signal as sig
 import sys
 
-plt.rcParams.update({'font.size': 18})
-plt.rcParams.update({"text.usetex": True, "font.family": "serif", "legend.fontsize":15})
+plt.rcParams.update({'font.size': 24})
+plt.rcParams.update({"text.usetex": True, "font.family": "serif", "legend.fontsize":25})
 
 plt.close("all")
 
@@ -52,25 +52,28 @@ Hxu_ts  = Bl/((Rec+1j*w2*Lec)*(-(w2**2)*Mms+1j*w2*Rms+1/Cms)+1j*w2*Bl**2)
 
 
 #=================MAIN PLOT=========================
-fig, ax = plt.subplots(1, 2)
+fig, ax = plt.subplots(1, 2, figsize=(18, 6))
 
-ax[0].semilogx(f_axis_1, Z_m, label='measured')
-ax[0].semilogx(f_axis_1, Z_f, label='fitted')
-ax[0].semilogx(f_axis_1, np.abs(Z_ts), label='reconstructed')
+ax[0].semilogx(f_axis_1, Z_m, '0.65', label='measured')
+ax[0].semilogx(f_axis_1, Z_f, 'C0', label='fitted')
+ax[0].semilogx(f_axis_1, np.abs(Z_ts), 'k', label='reconstructed')
 ax[0].set_xlim([10, f_axis_1[-1]])
+ax[0].set(xticks=[10, 100, 1e3], xticklabels=['10', '100', '1k'])
 ax[0].grid(which='both')
 ax[0].legend(loc='upper right')
 ax[0].set_xlabel('Frequency [Hz]')
 ax[0].set_ylabel(r'$|Z(f)|~~[\Omega]$')
 
-ax[1].semilogx(f_axis_2, H_m, label='measured')
-ax[1].semilogx(f_axis_2, H_f_noC, label='fitted without creep')
-ax[1].semilogx(f_axis_2, H_f, label='fitted')
-ax[1].semilogx(f_axis_2, np.abs(Hxu_ts)*1000, label='reconstructed')
+ax[1].semilogx(f_axis_2, H_m, '0.65', label='measured')
+# ax[1].semilogx(f_axis_2, H_f_noC, label='fitted without creep')
+ax[1].semilogx(f_axis_2, H_f, 'C0', label='fitted')
+ax[1].semilogx(f_axis_2, np.abs(Hxu_ts)*1000, 'k', label='reconstructed')
 ax[1].set_xlim([10, f_axis_2[-1]])
+ax[1].set(xticks=[10, 100, 1e3], xticklabels=['10', '100', '1k'])
 ax[1].grid(which='both')
-ax[1].legend(loc='upper right')
+# ax[1].legend(loc='upper right')
 ax[1].set_xlabel('Frequency [Hz]')
-ax[1].set_ylabel(r'$|H_{XU}(f)|~~[mm/V]$')
+ax[1].set_ylabel(r'$|H_{XU}(f)|~~$'+'[mm/V]')
 
+plt.savefig('Figures Rapport/Z_Hxu.pdf', format='pdf', bbox_inches='tight', pad_inches=0)
 plt.show()
